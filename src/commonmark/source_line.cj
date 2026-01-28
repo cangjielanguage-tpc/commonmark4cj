@@ -19,6 +19,7 @@ public class SourceLines {
         return sourceLines
     }
 
+    @Frozen
     public static func of(sourceLines: ArrayList<SourceLine>): SourceLines {
         let result: SourceLines = SourceLines()
         result.lines.add(all: sourceLines)
@@ -29,6 +30,7 @@ public class SourceLines {
         lines.add(sourceLine)
     }
 
+    @Frozen
     public func getLines(): ArrayList<SourceLine> {
         return lines
     }
@@ -65,28 +67,32 @@ public class SourceLines {
  * A line or part of a line from the input source.
  */
 public class SourceLine {
-    private let content: CharSequence
+    private let content: String
     private let sourceSpan: ?SourceSpan
 
-    public static func of(content: CharSequence, sourceSpan: ?SourceSpan): SourceLine {
+    @Frozen
+    public static func of(content: String, sourceSpan: ?SourceSpan): SourceLine {
         return SourceLine(content, sourceSpan)
     }
 
-    private SourceLine(content: CharSequence, sourceSpan: ?SourceSpan) {
+    @Frozen
+    private SourceLine(content: String, sourceSpan: ?SourceSpan) {
         this.content = content
         this.sourceSpan = sourceSpan
     }
 
-    public func getContent(): CharSequence {
+    @Frozen
+    public func getContent(): String {
         return content
     }
 
+    @Frozen
     public func getSourceSpan(): ?SourceSpan {
         return sourceSpan
     }
 
     public func substring(beginIndex: Int, endIndex: Int): SourceLine {
-        let newContent: CharSequence = content[beginIndex..endIndex]
+        let newContent: String = content[beginIndex..endIndex]
         var newSourceSpan: ?SourceSpan = None
         if (let Some(sourceSpan) <- sourceSpan) {
             let length: Int = endIndex - beginIndex

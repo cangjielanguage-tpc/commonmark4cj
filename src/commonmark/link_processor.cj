@@ -51,8 +51,12 @@ public class CoreLinkProcessor <: LinkProcessor {
         }
 
         var label = linkInfo.label()
-        var ref = label ?? linkInfo.text()
-        var def: ?LinkReferenceDefinition = context.getLinkReferenceDefinition(ref)
+        var ref = if (let Some(label) <- label && !label.isEmpty()) {
+            label
+        } else {
+            linkInfo.text()
+        }
+        var def: ?LinkReferenceDefinition = context.getDefinition("LinkReferenceDefinition", ref)
         if (let Some(def) <- def) {
             // Reference link
             return _process(linkInfo, scanner, def.getDestination(), def.getTitle())

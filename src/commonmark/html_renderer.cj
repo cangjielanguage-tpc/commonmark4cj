@@ -561,11 +561,10 @@ class CoreHtmlNodeRenderer <: AbstractVisitor & NodeRenderer {
 
     private func isInTightList(paragraph: Paragraph): Bool {
         if (let Some(parent) <- paragraph.getParent()) {
-            match(parent.getParent()) {
+            match (parent.getParent()) {
                 case Some(list: ListBlock) => return list.isTight()
                 case _ => ()
             }
-            
         }
         return false
     }
@@ -574,7 +573,8 @@ class CoreHtmlNodeRenderer <: AbstractVisitor & NodeRenderer {
         return getAttrs(node, tagName, EMPTY_MAP)
     }
 
-    private func getAttrs(node: Node, tagName: String, defaultAttributes: HashMap<String, String>): HashMap<String, String> {
+    private func getAttrs(node: Node, tagName: String, defaultAttributes: HashMap<String, String>): HashMap<String,
+        String> {
         return context.extendAttributes(node, tagName, defaultAttributes)
     }
 }

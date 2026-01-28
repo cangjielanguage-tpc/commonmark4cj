@@ -146,22 +146,33 @@ public class SourceSpans {
         return SourceSpans()
     }
 
+    @Frozen
     public func getSourceSpans(): ArrayList<SourceSpan> {
         return sourceSpans ?? ArrayList()
     }
 
+    @Frozen
     public func addAllFrom(nodes: Collection<Node>): Unit {
         for (node in nodes) {
             addAll(node.getSourceSpans())
         }
     }
 
-    public func addAll(other: ArrayList<SourceSpan>): Unit {
+    @Frozen
+    public func addAllFromTexts(nodes: ReadOnlyList<Text>): Unit {
+        for (node in nodes) {
+            addAll(node.getSourceSpans())
+        }
+    }
+
+    @Frozen
+    public func addAll(other: ReadOnlyList<SourceSpan>): Unit {
         if (other.isEmpty()) {
             return
         }
 
         let sourceSpans = sourceSpans ?? ArrayList()
+        this.sourceSpans = sourceSpans
 
         if (sourceSpans.isEmpty()) {
             sourceSpans.add(all: other)
@@ -172,7 +183,9 @@ public class SourceSpans {
             if (a.getInputIndex() + a.getLength() == b.getInputIndex()) {
                 sourceSpans[lastIndex] = SourceSpan.of(a.getLineIndex(), a.getColumnIndex(), a.getInputIndex(),
                     a.getLength() + b.getLength())
-                sourceSpans.add(all: other[1..])
+                for (i in 1..other.size) {
+                    sourceSpans.add(other[i])
+                }
             } else {
                 sourceSpans.add(all: other)
             }
@@ -188,8 +201,44 @@ public class SourcePosition {
     public SourcePosition(public let lineIndex: Int, public let index: Int) {}
 }
 
-extend SourcePosition <:ToString{
+extend SourcePosition <: ToString {
     public func toString(): String {
         return "{lineIndex=${lineIndex}, index=${index}}"
+    }
+}
+
+/**
+ * Whether to include {@link org.commonmark.node.SourceSpan} or not while parsing,
+ * see {@link Parser.Builder#includeSourceSpans(IncludeSourceSpans)}.
+ */
+public enum IncludeSourceSpans <: Equatable<IncludeSourceSpans> {
+    /**
+     * Do not include source spans.
+     */
+    | NONE
+    /**
+     * Include source spans on {@link org.commonmark.node.Block} nodes.
+     */
+    | BLOCKS
+    /**
+     * Include source spans on block nodes and inline nodes.
+     */
+    | BLOCKS_AND_INLINES
+
+    public operator func ==(other: IncludeSourceSpans): Bool {
+        match ((this, other)) {
+            case (BLOCKS_AND_INLINES, BLOCKS_AND_INLINES) => true
+            case (BLOCKS, BLOCKS) => true
+            case (NONE, NONE) => true
+            case _ => false
+        }
+    }
+    public prop need: Bool {
+        get() {
+            match (this) {
+                case NONE => false
+                case _ => true
+            }
+        }
     }
 }

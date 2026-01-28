@@ -14,8 +14,9 @@ public class TextContentRenderer <: Renderer {
         this.nodeRendererFactories = ArrayList<TextContentNodeRendererFactory>(builder.nodeRendererFactories.size + 1)
         this.nodeRendererFactories.add(all: builder.nodeRendererFactories)
         // Add as last. This means clients can override the rendering of core nodes if they want.
-        this.nodeRendererFactories.add(
-            {context: TextContentNodeRendererContext => CoreTextContentNodeRenderer(context)})
+        this
+            .nodeRendererFactories
+            .add({context: TextContentNodeRendererContext => CoreTextContentNodeRenderer(context)})
     }
 
     /**
@@ -93,8 +94,8 @@ public class TextContentRendererBuilder {
     public func extensions(extensions: Iterable<Extension>): TextContentRendererBuilder {
         for (extension in extensions) {
             if (extension is TextContentRendererExtension) {
-                let htmlRendererExtension: TextContentRendererExtension = (extension as TextContentRendererExtension).
-                    getOrThrow()
+                let htmlRendererExtension: TextContentRendererExtension = (extension as TextContentRendererExtension)
+                    .getOrThrow()
                 htmlRendererExtension.ext(this)
             }
         }
@@ -261,7 +262,7 @@ class CoreTextContentNodeRenderer <: AbstractVisitor & NodeRenderer {
     }
 
     public override func visit(listItem: ListItem): Unit {
-        match(listHolder) {
+        match (listHolder) {
             case Some(orderedListHolder: OrderedListHolder) =>
                 let indent: String = if (context.stripNewlines()) {
                     ""
@@ -272,19 +273,17 @@ class CoreTextContentNodeRenderer <: AbstractVisitor & NodeRenderer {
                 visitChildren(listItem)
                 writeEndOfLineIfNeeded(listItem, None)
                 orderedListHolder.increaseCounter()
-                
-            case _ => 
-                match(listHolder) {
-                    case Some(bulletListHolder: BulletListHolder) =>
-                        if (!context.stripNewlines()) {
-                            textContent.write("${bulletListHolder.getIndent()}${bulletListHolder.getMarker()} ")
-                        }
-                        visitChildren(listItem)
-                        writeEndOfLineIfNeeded(listItem, None)
-                    case _ => ()
-                }
+
+            case _ => match (listHolder) {
+                case Some(bulletListHolder: BulletListHolder) =>
+                    if (!context.stripNewlines()) {
+                        textContent.write("${bulletListHolder.getIndent()}${bulletListHolder.getMarker()} ")
+                    }
+                    visitChildren(listItem)
+                    writeEndOfLineIfNeeded(listItem, None)
+                case _ => ()
+            }
         }
-        
     }
 
     public override func visit(orderedList: OrderedList): Unit {

@@ -30,4 +30,4 @@ src/z_test.cj
 src/z_main.cj
 test_temp
 target
-test
+log.txt

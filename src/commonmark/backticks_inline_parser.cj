@@ -10,14 +10,14 @@ public class BackticksInlineParser <: InlineContentParser {
 
     // @Override
     public func tryParse(inlineParserState: InlineParserState): ParsedInline {
-        let scanner: Scanner = inlineParserState.scanner()
+        let scanner: Scanner = inlineParserState.getScanner()
         let start: SourcePosition = scanner.position()
-        let openingTicks: Int = scanner.matchMultiple(r'`')
+        let openingTicks: Int = scanner.matchMultiple(b'`')
         let afterOpening: SourcePosition = scanner.position()
 
-        while (scanner.find(r'`') > 0) {
+        while (scanner.find(b'`') > 0) {
             let beforeClosing: SourcePosition = scanner.position()
-            let count: Int = scanner.matchMultiple(r'`')
+            let count: Int = scanner.matchMultiple(b'`')
             if (count == openingTicks) {
                 var content: String = scanner.getSource(afterOpening, beforeClosing).getContent()
                 content = content.replace('\n', ' ')
@@ -43,11 +43,13 @@ public class BackticksInlineParser <: InlineContentParser {
 
 public class BackticksInlineParserFactory <: InlineContentParserFactory {
     // @Override
+    @Frozen
     public func getTriggerCharacters(): HashSet<Rune> {
         return HashSet(r'`')
     }
 
     // @Override
+    @Frozen
     public func create(): InlineContentParser {
         return BackticksInlineParser()
     }

@@ -8,21 +8,19 @@ package commonmark4cj.commonmark
  * (if the backslash is followed by a newline), or a literal backslash to the block's children.
  */
 public class BackslashInlineParser <: InlineContentParser {
-    private static let ESCAPABLE: Regex = Regex('^' + Escaping.ESCAPABLE)
-
     // @Override
     public func tryParse(inlineParserState: InlineParserState): ParsedInline {
-        let scanner: Scanner = inlineParserState.scanner()
+        let scanner: Scanner = inlineParserState.getScanner()
         // Backslash
         scanner.next()
 
         let next = scanner.peek()
-        if (next == r'\n') {
+        if (next == b'\n') {
             scanner.next()
             return ParsedInline.of(HardLineBreak(), scanner.position())
-        } else if (next != r'\0' && ESCAPABLE.matches(next.toString())) {
+        } else if (next != b'\0' && isEscapable(next)) {
             scanner.next()
-            return ParsedInline.of(Text(next.toString()), scanner.position())
+            return ParsedInline.of(Text(Rune(next).toString()), scanner.position())
         } else {
             return ParsedInline.of(Text("\\"), scanner.position())
         }
@@ -31,11 +29,13 @@ public class BackslashInlineParser <: InlineContentParser {
 
 public class BackslashInlineParserFactory <: InlineContentParserFactory {
     // @Override
+    @Frozen
     public func getTriggerCharacters(): HashSet<Rune> {
         return HashSet(r'\\')
     }
 
     // @Override
+    @Frozen
     public func create(): InlineContentParser {
         return BackslashInlineParser()
     }

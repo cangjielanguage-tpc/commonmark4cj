@@ -201,7 +201,7 @@ public abstract class ListBlock <: Block {
         return tight
     }
 
-    public open func setTight(tight: Bool) {
+    public open func setTight(tight: Bool): Unit {
         this.tight = tight
     }
 }
@@ -261,5 +261,51 @@ public open class OrderedList <: ListBlock {
 
     public open func getNodeType(): NodeType {
         return OrderedListType
+    }
+}
+
+public open class LinkReferenceDefinition <: Block {
+    private var label: ?String = None
+    private var destination: String = EMPTY_STRING
+    private var title: ?String = None
+
+    public init() {}
+
+    public init(label: String, destination: String, title: ?String) {
+        this.label = label
+        this.destination = destination
+        this.title = title
+    }
+
+    public open func getLabel(): ?String {
+        return label
+    }
+
+    public open func setLabel(label: String): Unit {
+        this.label = label
+    }
+
+    public open func getDestination(): String {
+        return destination
+    }
+
+    public open func setDestination(destination: String): Unit {
+        this.destination = destination
+    }
+
+    public open func getTitle(): ?String {
+        return title
+    }
+
+    public open func setTitle(title: String): Unit {
+        this.title = title
+    }
+
+    public open func accept(visitor: Visitor): Unit {
+        visitor.visit(this)
+    }
+
+    public open func getNodeType(): NodeType {
+        return LinkReferenceDefinitionType
     }
 }

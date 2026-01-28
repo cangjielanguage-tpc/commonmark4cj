@@ -13,46 +13,57 @@ public abstract class Node <: Context & ToString & Equatable<Node> & Hashable {
 
     public open func accept(visitor: Visitor): Unit
 
+    @Frozen
     public open func getNext(): ?Node {
         return next
     }
 
+    @Frozen
     public open func getPrevious(): ?Node {
         return prev
     }
 
+    @Frozen
     public open func getFirstChild(): ?Node {
         return firstChild
     }
 
+    @Frozen
     public open func getLastChild(): ?Node {
         return lastChild
     }
 
+    @Frozen
     public open func getParent(): ?Node {
         return parent
     }
 
+    @Frozen
     protected open func setParent(parent: ?Node): Unit {
         this.parent = parent
     }
 
+    @Frozen
     protected open func setPrevious(prev: ?Node): Unit {
         this.prev = prev
     }
 
+    @Frozen
     protected open func setNext(next: ?Node): Unit {
         this.next = next
     }
 
+    @Frozen
     protected open func setFirstChild(firstChild: ?Node): Unit {
         this.firstChild = firstChild
     }
 
+    @Frozen
     protected open func setLastChild(lastChild: ?Node): Unit {
         this.lastChild = lastChild
     }
 
+    @Frozen
     public open func appendChild(child: Node): Unit {
         child.unlink()
         child.setParent(this)
@@ -292,52 +303,6 @@ public open class SoftLineBreak <: Node {
     }
 }
 
-public open class LinkReferenceDefinition <: Node {
-    private var label: ?String = None
-    private var destination: String = EMPTY_STRING
-    private var title: ?String = None
-
-    public init() {}
-
-    public init(label: String, destination: String, title: ?String) {
-        this.label = label
-        this.destination = destination
-        this.title = title
-    }
-
-    public open func getLabel(): ?String {
-        return label
-    }
-
-    public open func setLabel(label: String): Unit {
-        this.label = label
-    }
-
-    public open func getDestination(): String {
-        return destination
-    }
-
-    public open func setDestination(destination: String): Unit {
-        this.destination = destination
-    }
-
-    public open func getTitle(): ?String {
-        return title
-    }
-
-    public open func setTitle(title: String): Unit {
-        this.title = title
-    }
-
-    public open func accept(visitor: Visitor): Unit {
-        visitor.visit(this)
-    }
-
-    public open func getNodeType(): NodeType {
-        return LinkReferenceDefinitionType
-    }
-}
-
 public open class Link <: Node {
     private var destination: String
     private var title: ?String
@@ -461,15 +426,18 @@ public abstract class Context {
     /**
      * @return the source spans of this node if included by the parser, an empty list otherwise
      */
+    @Frozen
     public func getSourceSpans(): ArrayList<SourceSpan> {
-        return sourceSpans ?? ArrayList()
+        return sourceSpans ?? EMPTY_SourceSpans
     }
+    private static let EMPTY_SourceSpans: ArrayList<SourceSpan> = ArrayList(1)
 
     /**
      * Replace the current source spans with the provided list.
      *
      * @param sourceSpans the new source spans to set
      */
+    @Frozen
     public func setSourceSpans(sourceSpans: ArrayList<SourceSpan>): Unit {
         if (sourceSpans.isEmpty()) {
             this.sourceSpans = None

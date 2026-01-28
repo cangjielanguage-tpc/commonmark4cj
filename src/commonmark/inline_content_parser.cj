@@ -35,7 +35,8 @@ public interface InlineContentParserFactory {
      * encountered during inline parsing, {@link InlineContentParser#tryParse} is called with the current parser state.
      * It can also register for more than one trigger character.
      */
-    func getTriggerCharacters(): Set<Rune>
+    @Frozen
+    func getTriggerCharacters(): HashSet<Rune>
 
     /**
      * Create an {@link InlineContentParser} that will do the parsing. Create is called once per text snippet of inline
@@ -53,5 +54,5 @@ public interface InlineParserState {
      * Note that this always returns the same instance, if you want to backtrack you need to use
      * {@link Scanner#position()} and {@link Scanner#setPosition(SourcePosition)}.
      */
-    func scanner(): Scanner
+    func getScanner(): Scanner
 }

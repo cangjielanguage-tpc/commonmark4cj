@@ -19,29 +19,29 @@ public class EntityInlineParser <: InlineContentParser {
 
     // @Override
     public func tryParse(inlineParserState: InlineParserState): ParsedInline {
-        let scanner: Scanner = inlineParserState.scanner()
+        let scanner: Scanner = inlineParserState.getScanner()
         let start: SourcePosition = scanner.position()
         // Skip `&`
         scanner.next()
 
         let c = scanner.peek()
-        if (c == r'#') {
+        if (c == b'#') {
             // Numeric
             scanner.next()
-            if (scanner.next('x') || scanner.next('X')) {
+            if (scanner.next(b'x') || scanner.next(b'X')) { /*cjlint-ignore !G.EXP.03 */
                 let digits: Int = scanner.matches(hex)
-                if (1 <= digits && digits <= 6 && scanner.next(';')) {
+                if (1 <= digits && digits <= 6 && scanner.next(b';')) { /*cjlint-ignore !G.EXP.03 */
                     return entity(scanner, start)
                 }
             } else {
                 let digits: Int = scanner.matches(dec)
-                if (1 <= digits && digits <= 7 && scanner.next(';')) {
+                if (1 <= digits && digits <= 7 && scanner.next(b';')) { /*cjlint-ignore !G.EXP.03 */
                     return entity(scanner, start)
                 }
             }
         } else if (entityStart.matches(c)) {
             scanner.matches(entityContinue)
-            if (scanner.next(';')) {
+            if (scanner.next(b';')) {
                 return entity(scanner, start)
             }
         }
@@ -58,11 +58,13 @@ public class EntityInlineParser <: InlineContentParser {
 public class EntityInlineParserFactory <: InlineContentParserFactory {
 
     // @Override
+    @Frozen
     public func getTriggerCharacters(): HashSet<Rune> {
         return HashSet(r'&')
     }
 
     // @Override
+    @Frozen
     public func create(): InlineContentParser {
         return EntityInlineParser()
     }

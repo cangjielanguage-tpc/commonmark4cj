@@ -5,95 +5,98 @@
 package commonmark4cj.commonmark
 
 /*
- * simple bitmap
+ * 对 ASCII 字符使用位图存储，对非 ASCII 字符使用 HashSet 存储
  */
 public class BitSet {
-    static let ARRSIZE = 16
-    var maxIndex: Int64
-    let words: Array<UInt64> = Array(ARRSIZE, repeat: 0)
-    let wordsMap: HashMap<Int64, UInt64> = HashMap()
-
-    public init(size: Int64) {
-        if (size < 0) {
-            throw NegativeArraySizeException("size < 0: ${size}")
+    let words: Array<UInt64> = [0, 0] // 64*2 覆盖ASCII
+    private var _rset: ?HashSet<Rune> = None
+    prop rset: HashSet<Rune> { // 超出ASCII 情况较少 使用set
+        get() {
+            if (let Some(v) <- _rset) {
+                v
+            } else {
+                let data = HashSet<Rune>()
+                this._rset = data
+                data
+            }
         }
-        this.maxIndex = size - 1
-    }
-
-    func getWord(wordIndex: Int64): UInt64 {
-        return if (wordIndex < ARRSIZE) {
-            words[wordIndex]
-        } else {
-            wordsMap.get(wordIndex) ?? 0
-        }
-    }
-
-    func setWord(wordIndex: Int64, word: UInt64): Unit {
-        if (wordIndex < ARRSIZE) {
-            words[wordIndex] = word
-        } else {
-            wordsMap.add(wordIndex, word)
-        }
-    }
-
-    func autoGrow(wordIndex: Int64): Bool {
-        return if (wordIndex > this.maxIndex) {
-            this.maxIndex = wordIndex
-            true
-        } else {
-            false
-        }
-    }
-
-    func calcIndex(index: Int64): (Int64, Int64) {
-        if (index < 0) {
-            throw IndexOutOfBoundsException("index < 0: ${index}")
-        }
-        (index >> 6, index & 63)
     }
 
     /*
-     * get index value
+     * 与 Scanner 集成，先检查字节，再根据需要检查 Rune
      */
-    public func get(index: Int64): Bool {
-        let (wordIndex, wordBitIndex) = calcIndex(index)
-        let word = getWord(wordIndex)
-        if (word == 0) {
+    public func get(scanner: Scanner): Bool {
+        let b: Byte = scanner.peek()
+        if (get(b)) {
+            return true
+        } else if (rset.isEmpty()) {
             return false
+        } else if (b >> 5 != 0b110) {
+            // 只支持Latin范围内
+            return false
+        } else {
+            let r: Rune = scanner.peekRune()
+            return rset.contains(r)
         }
-        return (word >> wordBitIndex & 1) == 1
+    }
+    /*
+     * 检查 ASCII 字节
+     */
+    public func get(b: Byte): Bool {
+        if (b < 64) {
+            return (words[0] >> b & 1) == 1
+        } else if (b < 128) {
+            return (words[1] >> (b % 64) & 1) == 1
+        }
+        return false
+    }
+    /*
+     * 检查Rune
+     */
+    public func get(r: Rune): Bool {
+        if (r.isAscii()) {
+            return get(UInt8(UInt32(r)))
+        } else if (rset.isEmpty()) {
+            return false
+        } else {
+            return rset.contains(r)
+        }
     }
 
     /*
-     * set index to true
+     * 设置Rune
      */
-    public func set(index: Int64): Unit {
-        this.autoGrow(index)
-        let (wordIndex, wordBitIndex) = calcIndex(index)
-        let word = getWord(wordIndex) | (1 << wordBitIndex)
-        setWord(wordIndex, word)
+    public func set(r: Rune): Unit {
+        let rint = UInt32(r)
+        if (rint < 64) {
+            words[0] |= (1u64 << rint)
+        } else if (rint < 128) {
+            words[1] |= (1u64 << (rint % 64))
+        } else {
+            rset.add(r)
+        }
     }
 
     /*
-     * or
+     * 设置ascii字节
      */
-    public func or(set: BitSet): Unit {
-        for (i in 0..ARRSIZE) {
-            this.words[i] |= set.words[i]
-        }
-        for ((wordIndex, word) in set.wordsMap) {
-            let newWord = this.getWord(wordIndex) | word
-            this.setWord(wordIndex, newWord)
+    public func set(b: Byte): Unit {
+        if (b < 64) {
+            words[0] |= (1u64 << b)
+        } else if (b < 128) {
+            words[1] |= (1u64 << (b % 64))
+        } else {
+            throw IllegalArgumentException("Not ASCII Byte")
         }
     }
 
     public func clone(): BitSet {
-        let newSet = BitSet(this.maxIndex + 1)
-        for (i in 0..ARRSIZE) {
+        let newSet = BitSet()
+        for (i in 0..words.size) {
             newSet.words[i] = this.words[i]
         }
-        for ((wordIndex, word) in this.wordsMap) {
-            newSet.setWord(wordIndex, word)
+        if (let Some(v) <- _rset) {
+            newSet.rset.add(all: v)
         }
         return newSet
     }

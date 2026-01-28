@@ -11,7 +11,7 @@ package commonmark4cj.commonmark
  * (see {@link Character#isSupplementaryCodePoint(Int)}).
  */
 public interface CharMatcher {
-    func matches(c: Rune): Bool
+    func matches(b: Byte): Bool
 }
 
 /**
@@ -24,9 +24,8 @@ public class AsciiMatcher <: CharMatcher {
         this.set = builder.set
     }
 
-    // @Override
-    public func matches(c: Rune): Bool {
-        return set.get(Int64(UInt32(c)))
+    public func matches(b: Byte): Bool {
+        return set.get(b)
     }
 
     public func newBuilder(): AsciiMatcherBuilder {
@@ -34,7 +33,7 @@ public class AsciiMatcher <: CharMatcher {
     }
 
     public static func builder(): AsciiMatcherBuilder {
-        return AsciiMatcherBuilder(BitSet(16))
+        return AsciiMatcherBuilder(BitSet())
     }
 
     public static func builder(matcher: AsciiMatcher): AsciiMatcherBuilder {
@@ -50,17 +49,15 @@ public class AsciiMatcherBuilder {
     }
 
     public func c(ch: Byte): AsciiMatcherBuilder {
-        c(Int64(ch))
-    }
-    public func c(ch: Rune): AsciiMatcherBuilder {
-        c(Int64(UInt32(ch)))
-    }
-    public func c(ch: Int64): AsciiMatcherBuilder {
-        if (ch > 127) {
-            throw IllegalArgumentException("Can only match ASCII characters")
-        }
         set.set(ch)
         return this
+    }
+    public func c(ch: Rune): AsciiMatcherBuilder {
+        let u32 = UInt32(ch)
+        if (u32 > 127) {
+            throw IllegalArgumentException("Can only match ASCII characters")
+        }
+        c(UInt8(u32))
     }
 
     public func anyOf(s: String): AsciiMatcherBuilder {
@@ -70,6 +67,7 @@ public class AsciiMatcherBuilder {
         return this
     }
 
+    @Frozen
     public func anyOf(characters: Set<Byte>): AsciiMatcherBuilder {
         for (ch in characters) {
             c(ch)
