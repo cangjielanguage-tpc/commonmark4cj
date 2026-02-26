@@ -2,6 +2,7 @@
  * Copyright (c) Huawei Technologies Co., Ltd. 2025-2025. All rights reserved.
  */
 package markdown.plugin
+import ohos.hilog.Hilog
 
 public class FootnotePlugin <: AbstractMarkdownPlugin {
     public static func create(): FootnotePlugin {
@@ -84,13 +85,15 @@ class FootnoteBlockParser <: AbstractBlockParser {
 class FootnoteBlockParserFactory <: AbstractBlockParserFactory {
     static let FOOTNOTE_BLOCK = Regex(#"^\[\^.+?\]:"#)
     public func tryStart(state: ParserState, _: MatchedBlockParser): ?BlockStart {
-        let line: String = state.getLine().getContent()
+        var content: String = state.getLine().getContent()
+        let pos = state.getIndex()
+        var line = content[pos..]
         if (line.size >= 4 && line[0] == b'[' && line[1] == b'^') {
             if (let Some(end) <- line.indexOf("]:", 2)) {
-                let ss = state.getLine().substring(end + 2, line.size)
+                let ss = state.getLine().substring(pos + end + 2, content.size)
                 return BlockStart
                     .of(FootnoteBlockParser(line[2..end], ss))
-                    .atIndex(state.getIndex() + end + 2)
+                    .atIndex(pos + end + 2)
             }
         }
         return BlockStart.none()

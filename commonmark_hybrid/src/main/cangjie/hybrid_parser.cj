@@ -64,8 +64,11 @@ public class HybridParser <: SharedObject & JSInteropType<HybridParser> {
                     }
                 }
             } catch (e: Exception) {
-                promise.reject(context.string(e.toString()).toJSValue())
-                Hilog.error(0, 'hybrid Exception 2.1', getStackTrace(e))
+                throw e
+                context.postJSTask {
+                    promise.reject(context.string(e.toString()).toJSValue())
+                    Hilog.error(0, 'hybrid Exception 2.1', getStackTrace(e))
+                }
             }
         }
         return promise.toJSValue()
