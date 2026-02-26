@@ -27,8 +27,8 @@ class LinkifyPostProcessor <: PostProcessor {
     }
 }
 
-class LinkifyVisitor <: AbstractVisitor {
-    static let urlreg = Regex(#"https?://[!*'();:@&=+$,/?#[\]a-zA-Z0-9-_.~]+"#)
+public class LinkifyVisitor <: AbstractVisitor {
+    public static var urlreg = Regex(#"https?://[!*'();:@&=+$,/?#[\]a-zA-Z0-9-_.~]+"#)
     public func visit(node: Text): Unit {
         if (let Some(_: Link) <- node.getParent()) {
             return

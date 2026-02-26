@@ -26,6 +26,14 @@ function opt(includeSourceSpans: number, cmInlineTags: string[]): Options {
   }
 }
 
+let options: Options = {
+  jsNodeFactory: () => new JsNodeSendableImpl(),
+  includeSourceSpans: 0,
+  cmInlineTags: ['INSERT_IMAGE', '^moonLoading^', 'KIMI_REF'],
+  customParsers: undefined
+}
+let parser = new cjLib.HybridParser(options)
+
 export default function aTest() {
   describe('aTest', () => {
     beforeAll(() => {
@@ -146,6 +154,15 @@ export default function aTest() {
       let doc = await parser.parse(md)
       let str = printNode(doc)
       console.error(str)
+    })
+    it('linkify1', 0, async () =>{
+      let md = `这是一个带中文的链接：
+https://www.wanuxi.com/为美好的世界献上祝福第三季主视觉图公开
+你好`
+      let doc = await parser.parse(md)
+      let str = printNode(doc)
+      console.error(str)
+      expect(doc.getFirstChild()!.getFirstChild()!.getNext()!.getNext()!.getDestination()).assertEqual("https://www.wanuxi.com/为美好的世界献上祝福第三季主视觉图公开")
     })
   })
 }

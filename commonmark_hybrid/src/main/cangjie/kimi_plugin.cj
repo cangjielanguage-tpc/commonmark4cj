@@ -3,6 +3,8 @@
  */
 package commonmark_hybrid
 
+import std.regex.*
+
 class KimiPlugin <: AbstractMarkdownPlugin {
     KimiPlugin() {
     }
@@ -28,6 +30,7 @@ class KimiPlugin <: AbstractMarkdownPlugin {
             }
              */
         }
+        LinkifyVisitor.urlreg = Regex(#"https?://[!*'();:@&=+$,/?#[\]a-zA-Z0-9-_.~\p{Han}]+"#, Unicode)
     }
 
     public func getClassType(): String {
