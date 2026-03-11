@@ -31,9 +31,6 @@ public class BitSet {
             return true
         } else if (rset.isEmpty()) {
             return false
-        } else if (b >> 5 != 0b110) {
-            // 只支持Latin范围内
-            return false
         } else {
             let r: Rune = scanner.peekRune()
             return rset.contains(r)

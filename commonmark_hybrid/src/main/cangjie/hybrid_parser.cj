@@ -33,7 +33,7 @@ public class HybridParser <: SharedObject & JSInteropType<HybridParser> {
             .usePlugin(FootnotePlugin.create()) // 脚注
             .usePlugin(LinkifyPlugin.create()) // 自动网址链接
             .usePlugin(TocPlugin.create()) // TOC列表插件
-            .usePlugin(Plugin4InlineParserIntegration([InsertImageParser(), MoonLoadingParser()]))
+            .usePlugin(Kimi_Inline_Parser)
             .usePlugin(KimiPlugin())
             .usePlugin(CustomTagPlugin(cmInlineTags))
             .includeSourceSpans(includeSourceSpans)

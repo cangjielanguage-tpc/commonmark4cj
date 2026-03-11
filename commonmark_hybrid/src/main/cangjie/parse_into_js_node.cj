@@ -149,7 +149,7 @@ public func parseIntoJsNode(context: JSContext, callInfo: JSCallInfo): JSValue {
             .usePlugin(LinkifyPlugin.create())
             // TOC列表插件
             .usePlugin(TocPlugin.create())
-            .usePlugin(Plugin4InlineParserIntegration([InsertImageParser(), MoonLoadingParser()]))
+            .usePlugin(Kimi_Inline_Parser)
             .usePlugin(KimiPlugin())
             .usePlugin(CustomTagPlugin(cmInlineTags))
             .includeSourceSpans(includeSourceSpans)
