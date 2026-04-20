@@ -196,10 +196,20 @@ export interface JsNode {
    */
   getProps(): Map<string, string> | undefined
 
+  /**
+   * 添加自定义数据
+   */
+  putProp(k: string, v: string): void
+
   /*
    * 获取SourceSpan信息
    */
   getSourceSpans(): Array<SourceSpan>
+
+  /*
+   * 添加SourceSpan信息
+   */
+  addSourceSpans(...numbers: Array<number>): void
 
   /*
    * 重置Node 以供复用

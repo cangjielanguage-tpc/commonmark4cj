@@ -21,3 +21,15 @@ cjpm.lock
 IDL_Custom_Type_Whitelist~
 
 BuildProfile.ets
+
+.cache
+.vnext
+.vscode
+target
+/test
+ci_lib
+ci_test
+log.txt
+module-lock.json
+.cjpm-history
+src/z_test.cj
