@@ -94,7 +94,7 @@ public class HtmlInlineParser <: InlineContentParser {
         scanner.matches(tagNameContinue)
         var whitespace: Bool = scanner.whitespace() >= 1
         // spec: An attribute consists of whitespace, an attribute name, and an optional attribute value specification.
-        while (whitespace && scanner.matches(attributeStart) >= 1) {
+        while (whitespace && scanner.matches(attributeStart) >= 1) { /*cjlint-ignore !G.EXP.03 */
             scanner.matches(attributeContinue)
             // spec: An attribute value specification consists of optional whitespace, a = character,
             // optional whitespace, and an attribute value.
@@ -156,7 +156,7 @@ public class HtmlInlineParser <: InlineContentParser {
     private static func tryComment(scanner: Scanner): Bool {
         // spec: An [HTML comment](@) consists of `<!-->`, `<!--->`, or  `<!--`, a string of
         // characters not including the string `-->`, and `-->` (see the
-        // [HTML spec](https://html.spec.whatwg.org/multipage/parsing.html#markup-declaration-open-state)).
+        // [HTML spec](html/spec/whatwg/org/multipage/parsing.html#markup-declaration-open-state)).
 
         // Skip first `-`
         scanner.next()

@@ -201,7 +201,7 @@ public abstract class ListBlock <: Block {
         return tight
     }
 
-    public open func setTight(tight: Bool) {
+    public open func setTight(tight: Bool): Unit {
         this.tight = tight
     }
 }

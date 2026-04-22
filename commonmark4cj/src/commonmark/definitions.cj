@@ -15,7 +15,7 @@ public class Definitions {
     private let defs: HashMap<String, LinkReferenceDefinition> = HashMap()
 
     @Frozen
-    public func addDefinition(ref: LinkReferenceDefinition) {
+    public func addDefinition(ref: LinkReferenceDefinition): Unit {
         let k = ref.getNodeType() + ref.getLabel().getOrThrow()
         defs.addIfAbsent(k, ref)
     }

@@ -22,7 +22,7 @@ public abstract class AbstractBlockParser <: BlockParser {
 
     public open func addLine(_: SourceLine): Unit {}
 
-    public open func addSourceSpan(sourceSpan: SourceSpan) {
+    public open func addSourceSpan(sourceSpan: SourceSpan): Unit {
         getBlock().addSourceSpan(sourceSpan)
     }
 
@@ -663,7 +663,7 @@ class HtmlBlockParser <: AbstractBlockParser {
     private static let ATTRIBUTEVALUESPEC: String = "(?:" + "\\s*=" + "\\s*" + ATTRIBUTEVALUE + ")"
     private static let ATTRIBUTE: String = "(?:" + "\\s+" + ATTRIBUTENAME + ATTRIBUTEVALUESPEC + "?)"
 
-    public static let OPENTAG: String = "<" + TAGNAME + ATTRIBUTE + "*" + "\\s*/?>"
+    public static let OPENTAG: String = "<${TAGNAME}${ATTRIBUTE}*" + "\\s*/?>"
     public static let CLOSETAG: String = "</" + TAGNAME + "\\s*[>]"
 
     public static var BLOCK_PATTERNS: Array<Array<Regex>> = [
@@ -1449,7 +1449,7 @@ class ParagraphParser <: AbstractBlockParser {
         linkReferenceDefinitionParser.parse(line)
     }
 
-    public func addSourceSpan(sourceSpan: SourceSpan) {
+    public func addSourceSpan(sourceSpan: SourceSpan): Unit {
         // Some source spans might belong to link reference definitions, others to the paragraph.
         // The parser will handle that.
         linkReferenceDefinitionParser.addSourceSpan(sourceSpan)

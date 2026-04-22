@@ -29,7 +29,7 @@ public class Characters {
     }
 
     /**
-     * @see <a href="https://spec.commonmark.org/0.31.2/#blank-line">blank line</a>
+     * @see <a href="spec/commonmark/org/0.31.2/#blank-line">blank line</a>
      */
     public static func isBlank(s: String): Bool {
         return skipSpaceTab(s, 0, s.size) == s.size
@@ -57,7 +57,7 @@ public class Characters {
     }
 
     /**
-     * @see <a href="https://spec.commonmark.org/0.31.2/#unicode-punctuation-character">Unicode punctuation character</a>
+     * @see <a href="spec/commonmark/org/0.31.2/#unicode-punctuation-character">Unicode punctuation character</a>
      */
     public static var isPunctuationCodePoint: (Rune) -> Bool = {
         codePoint: Rune =>
@@ -104,7 +104,7 @@ public class Characters {
     /**
      * Check whether the provided code point is a Unicode whitespace character as defined in the spec.
      *
-     * @see <a href="https://spec.commonmark.org/0.31.2/#unicode-whitespace-character">Unicode whitespace character</a>
+     * @see <a href="spec/commonmark/org/0.31.2/#unicode-whitespace-character">Unicode whitespace character</a>
      */
     public static func isWhitespaceCodePoint(codePoint: Rune): Bool {
         match (codePoint) {

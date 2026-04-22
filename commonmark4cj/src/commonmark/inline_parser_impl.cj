@@ -518,7 +518,7 @@ class InlineParserImpl <: InlineParser & InlineParserState {
         var c: Byte = '\0'
         while (true) {
             c = scanner.peek()
-            if (c == Scanner.END || specialCharacters.get(scanner)) {
+            if (c == Scanner.END || specialCharacters.get(scanner)) { /*cjlint-ignore !G.EXP.03 */
                 break
             }
             scanner.next()
@@ -687,7 +687,7 @@ class InlineParserImpl <: InlineParser & InlineParserState {
 
     private func removeDelimitersBetween(opener: Delimiter, closer: Delimiter): Unit {
         var delimiter: ?Delimiter = closer.previous
-        while (let Some(v) <- delimiter && v != opener) {
+        while (let Some(v) <- delimiter && v != opener) { /*cjlint-ignore !G.EXP.03 */
             delimiter = v.previous
             removeDelimiterKeepNode(v)
         }
@@ -758,7 +758,7 @@ class InlineParserImpl <: InlineParser & InlineParserState {
     }
 
     private func mergeIfNeeded(first: ?Text, last: ?Text, textLength: Int64): Unit {
-        if (let Some(first) <- first && let Some(last) <- last && first != last) {
+        if (let Some(first) <- first && let Some(last) <- last && first != last) { /*cjlint-ignore !G.EXP.03 */
             var sb: StringBuilder = StringBuilder(textLength)
             sb.append(first.getLiteral())
             var sourceSpans: ?SourceSpans = None
