@@ -7,30 +7,15 @@
  */
 package commonmark4cj.commonmark
 
-internal import std.collection.{ArrayList, HashMap, HashSet, Map, EquatableCollection, Set, LinkedList, map, collectString, collectHashSet}
+internal import std.collection.*
 internal import std.convert.*
-internal import std.io.{StringReader, InputStream, IOException}
-internal import std.regex.{Regex, RegexFlag, MatchData, Position, Matcher}
+internal import std.io.*
+internal import std.regex.*
 internal import std.unicode.*
 
 extend<T> Option<T> {
     operator func ()(): T {
         this.getOrThrow()
-    }
-}
-
-extend<T> Option<T> where T <: Equatable<T> {
-    operator func ==(other: T): Bool {
-        match (this) {
-            case Some(v) => v == other
-            case _ => false
-        }
-    }
-    operator func !=(other: T): Bool {
-        match (this) {
-            case Some(v) => v != other
-            case _ => true
-        }
     }
 }
 
@@ -40,3 +25,17 @@ let EMPTY_MAP: HashMap<String, String> = HashMap()
 let STRINGBUILDER_CAPACITY: Int64 = 256
 
 type CharSequence = String
+
+func getStackTrace(thrown: ?Exception): String {
+    var res: String = ""
+    match (thrown) {
+        case None => return res
+        case Some(v) =>
+            res = "\n${v.toString()}\n"
+            var arr = v.getStackTrace()
+            for (line in arr) {
+                res += "      at ${line.declaringClass}.${line.methodName}(${line.fileName}:${line.lineNumber})\n"
+            }
+            return res
+    }
+}

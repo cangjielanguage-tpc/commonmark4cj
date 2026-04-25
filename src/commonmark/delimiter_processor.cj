@@ -24,18 +24,6 @@ public interface DelimiterProcessor {
     func getMinLength(): Int64
 
     /**
-     * Determine how many (if any) of the delimiter characters should be used.
-     * <p>
-     * This allows implementations to decide how many characters to use based on the properties of the delimiter runs.
-     * An implementation can also return 0 when it doesn't want to allow this particular combination of delimiter runs.
-     *
-     * @param opener the opening delimiter run
-     * @param closer the closing delimiter run
-     * @return how many delimiters should be used must not be greater than length of either opener or closer
-     */
-    func getDelimiterUse(opener: DelimiterRun, closer: DelimiterRun): Int64
-
-    /**
      * Process the matched delimiters, e.g. by wrapping the nodes between opener and closer in a new node, or appending
      * a new node after the opener.
      * <p>
@@ -45,7 +33,7 @@ public interface DelimiterProcessor {
      * @param closer the text node that contained the closing delimiter
      * @param delimiterUse the number of delimiters that were used
      */
-    func process(opener: Text, closer: Text, delimiterUse: Int64): Unit
+    func process(openingRun: DelimiterRun, closingRun: DelimiterRun): Int
 }
 
 class StaggeredDelimiterProcessor <: DelimiterProcessor {
@@ -101,11 +89,7 @@ class StaggeredDelimiterProcessor <: DelimiterProcessor {
         return processors.firstNode().value
     }
 
-    public override func getDelimiterUse(opener: DelimiterRun, closer: DelimiterRun): Int64 {
-        return findProcessor(opener.getLength()).getDelimiterUse(opener, closer)
-    }
-
-    public override func process(opener: Text, closer: Text, delimiterUse: Int64): Unit {
-        findProcessor(delimiterUse).process(opener, closer, delimiterUse)
+    public override func process(openingRun: DelimiterRun, closingRun: DelimiterRun): Int {
+        findProcessor(openingRun.getLength()).process(openingRun, closingRun)
     }
 }

@@ -41,7 +41,7 @@ public class HtmlInlineParser <: InlineContentParser {
 
     // @Override
     public func tryParse(inlineParserState: InlineParserState): ParsedInline {
-        let scanner: Scanner = inlineParserState.scanner()
+        let scanner: Scanner = inlineParserState.getScanner()
         let start: SourcePosition = scanner.position()
         // Skip over `<`
         scanner.next()
@@ -51,23 +51,23 @@ public class HtmlInlineParser <: InlineContentParser {
             if (tryOpenTag(scanner)) {
                 return htmlInline(start, scanner)
             }
-        } else if (c == r'/') {
+        } else if (c == b'/') {
             if (tryClosingTag(scanner)) {
                 return htmlInline(start, scanner)
             }
-        } else if (c == r'?') {
+        } else if (c == b'?') {
             if (tryProcessingInstruction(scanner)) {
                 return htmlInline(start, scanner)
             }
-        } else if (c == r'!') {
+        } else if (c == b'!') {
             // comment, declaration or CDATA
             scanner.next()
             c = scanner.peek()
-            if (c == r'-') {
+            if (c == b'-') {
                 if (tryComment(scanner)) {
                     return htmlInline(start, scanner)
                 }
-            } else if (c == r'[') {
+            } else if (c == b'[') {
                 if (tryCdata(scanner)) {
                     return htmlInline(start, scanner)
                 }
@@ -94,7 +94,7 @@ public class HtmlInlineParser <: InlineContentParser {
         scanner.matches(tagNameContinue)
         var whitespace: Bool = scanner.whitespace() >= 1
         // spec: An attribute consists of whitespace, an attribute name, and an optional attribute value specification.
-        while (whitespace && scanner.matches(attributeStart) >= 1) {
+        while (whitespace && scanner.matches(attributeStart) >= 1) { /*cjlint-ignore !G.EXP.03 */
             scanner.matches(attributeContinue)
             // spec: An attribute value specification consists of optional whitespace, a = character,
             // optional whitespace, and an attribute value.
@@ -102,15 +102,15 @@ public class HtmlInlineParser <: InlineContentParser {
             if (scanner.next('=')) {
                 scanner.whitespace()
                 let valueStart = scanner.peek()
-                if (valueStart == r'\'') {
+                if (valueStart == b'\'') {
                     scanner.next()
-                    if (scanner.find(r'\'') < 0) {
+                    if (scanner.find(b'\'') < 0) {
                         return false
                     }
                     scanner.next()
-                } else if (valueStart == r'"') {
+                } else if (valueStart == b'"') {
                     scanner.next()
-                    if (scanner.find(r'"') < 0) {
+                    if (scanner.find(b'"') < 0) {
                         return false
                     }
                     scanner.next()
@@ -125,8 +125,8 @@ public class HtmlInlineParser <: InlineContentParser {
             }
         }
 
-        scanner.next('/')
-        return scanner.next('>')
+        scanner.next(b'/')
+        return scanner.next(b'>')
     }
 
     private static func tryClosingTag(scanner: Scanner): Bool {
@@ -144,9 +144,9 @@ public class HtmlInlineParser <: InlineContentParser {
         // spec: A processing instruction consists of the string <?, a string of characters not including the string ?>,
         // and the string ?>.
         scanner.next()
-        while (scanner.find(r'?') > 0) {
+        while (scanner.find(b'?') > 0) {
             scanner.next()
-            if (scanner.next('>')) {
+            if (scanner.next(b'>')) {
                 return true
             }
         }
@@ -156,19 +156,19 @@ public class HtmlInlineParser <: InlineContentParser {
     private static func tryComment(scanner: Scanner): Bool {
         // spec: An [HTML comment](@) consists of `<!-->`, `<!--->`, or  `<!--`, a string of
         // characters not including the string `-->`, and `-->` (see the
-        // [HTML spec](https://html.spec.whatwg.org/multipage/parsing.html#markup-declaration-open-state)).
+        // [HTML spec](html/spec/whatwg/org/multipage/parsing.html#markup-declaration-open-state)).
 
         // Skip first `-`
         scanner.next()
-        if (!scanner.next('-')) {
+        if (!scanner.next(b'-')) {
             return false
         }
 
-        if (scanner.next('>') || scanner.next("->")) {
+        if (scanner.next(b'>') || scanner.next("->")) { /*cjlint-ignore !G.EXP.03 */
             return true
         }
 
-        while (scanner.find(r'-') >= 0) {
+        while (scanner.find(b'-') >= 0) {
             if (scanner.next("-->")) {
                 return true
             } else {
@@ -187,7 +187,7 @@ public class HtmlInlineParser <: InlineContentParser {
         scanner.next()
 
         if (scanner.next("CDATA[")) {
-            while (scanner.find(r']') >= 0) {
+            while (scanner.find(b']') >= 0) {
                 if (scanner.next("]]>")) {
                     return true
                 } else {
@@ -206,7 +206,7 @@ public class HtmlInlineParser <: InlineContentParser {
         if (scanner.whitespace() <= 0) {
             return false
         }
-        if (scanner.find(r'>') >= 0) {
+        if (scanner.find(b'>') >= 0) {
             scanner.next()
             return true
         }
@@ -217,6 +217,7 @@ public class HtmlInlineParser <: InlineContentParser {
 public class HtmlInlineParserFactory <: InlineContentParserFactory {
 
     // @Override
+    @Frozen
     public func getTriggerCharacters(): HashSet<Rune> {
         return HashSet(r'<')
     }

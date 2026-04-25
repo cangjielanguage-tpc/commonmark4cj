@@ -8,7 +8,7 @@
 package commonmark4cj.strikethrough
 
 internal import commonmark4cj.commonmark.*
-internal import std.collection.{HashSet, HashMap, Map}
+internal import std.collection.*
 
 extend<T> Option<T> {
     operator func ()(): T {

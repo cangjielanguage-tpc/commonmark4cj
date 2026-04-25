@@ -28,14 +28,45 @@ public interface DelimiterRun {
      * as {{@link #length()}}
      */
     func getOriginalLength(): Int64
+
+    /**
+     * @return the innermost opening delimiter, e.g. for {@code ***} this is the last {@code *}
+     */
+    func getOpener(): Text
+
+    /**
+     * @return the innermost closing delimiter, e.g. for {@code ***} this is the first {@code *}
+     */
+    func getCloser(): Text
+
+    /**
+     * Get the opening delimiter nodes for the specified length of delimiters. Length must be between 1 and
+     * {@link #length()}.
+     * <p>
+     * For example, for a delimiter run {@code ***}, calling this with 1 would return the last {@code *}.
+     * Calling it with 2 would return the second last {@code *} and the last {@code *}.
+     */
+    @Frozen
+    func getOpeners(length: Int): ReadOnlyList<Text>
+
+    /**
+     * Get the closing delimiter nodes for the specified length of delimiters. Length must be between 1 and
+     * {@link #length()}.
+     * <p>
+     * For example, for a delimiter run {@code ***}, calling this with 1 would return the first {@code *}.
+     * Calling it with 2 would return the first {@code *} and the second {@code *}.
+     */
+    @Frozen
+    func getClosers(length: Int): ReadOnlyList<Text>
 }
 
 /**
  * Delimiter (emphasis, strong emphasis or custom emphasis).
  */
 public class Delimiter <: DelimiterRun & Equatable<Delimiter> {
-    public let node: Text
+    public let characters: ArrayList<Text>
     public let delimiterChar: Rune
+    private let originalLength: Int64
 
     /**
      * Can open emphasis, see spec.
@@ -50,15 +81,14 @@ public class Delimiter <: DelimiterRun & Equatable<Delimiter> {
     public var previous: ?Delimiter = None
     public var next: ?Delimiter = None
 
-    public var length: Int64 = 1
-    public var originalLength: Int64 = 1
-
-    public init(node: Text, delimiterChar: Rune, canOpen: Bool, canClose: Bool, previous: ?Delimiter) {
-        this.node = node
+    @Frozen
+    public init(characters: ArrayList<Text>, delimiterChar: Rune, canOpen: Bool, canClose: Bool, previous: ?Delimiter) {
+        this.characters = characters
         this.delimiterChar = delimiterChar
         this.canOpenBool = canOpen
         this.canCloseBool = canClose
         this.previous = previous
+        this.originalLength = characters.size
     }
 
     public func canOpen(): Bool {
@@ -70,7 +100,7 @@ public class Delimiter <: DelimiterRun & Equatable<Delimiter> {
     }
 
     public func getLength(): Int64 {
-        return length
+        return characters.size
     }
 
     public func getOriginalLength(): Int64 {
@@ -83,5 +113,29 @@ public class Delimiter <: DelimiterRun & Equatable<Delimiter> {
 
     public operator func !=(other: Delimiter): Bool {
         return !refEq(this, other)
+    }
+
+    public func getOpener(): Text {
+        return characters.last.getOrThrow()
+    }
+
+    public func getCloser(): Text {
+        return characters[0]
+    }
+
+    @Frozen
+    public func getOpeners(length: Int): ReadOnlyList<Text> {
+        if (!(length >= 1 && length <= getLength())) {
+            throw IllegalArgumentException("length must be between 1 and ${getLength()}, was ${length}")
+        }
+        return characters[characters.size - length..characters.size]
+    }
+
+    @Frozen
+    public func getClosers(length: Int): ReadOnlyList<Text> {
+        if (!(length >= 1 && length <= getLength())) {
+            throw IllegalArgumentException("length must be between 1 and ${getLength()}, was ${length}")
+        }
+        return characters[0..length]
     }
 }

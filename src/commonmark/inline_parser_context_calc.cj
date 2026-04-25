@@ -93,11 +93,11 @@ class InlineParserContextCalc {
 
     @Frozen
     private static func calculateLinkMarkers(linkMarkers: Set<Rune>): BitSet {
-        var bitSet = BitSet(8)
+        var bitSet = BitSet()
         for (c in linkMarkers) {
-            bitSet.set(Int64(UInt32(c)))
+            bitSet.set(c)
         }
-        bitSet.set(Int64(b'!'))
+        bitSet.set(r'!')
         return bitSet
     }
 
@@ -109,17 +109,17 @@ class InlineParserContextCalc {
     ): BitSet {
         var bitSet: BitSet = linkMarkers.clone()
         for (c in delimiterCharacters) {
-            bitSet.set(Int64(UInt32(c)))
+            bitSet.set(c)
         }
         for (factory in inlineContentParserFactories) {
             for (c in factory.getTriggerCharacters()) {
-                bitSet.set(Int64(UInt32(c)))
+                bitSet.set(c)
             }
         }
-        bitSet.set(Int64(b'['))
-        bitSet.set(Int64(b']'))
-        bitSet.set(Int64(b'!'))
-        bitSet.set(Int64(b'\n'))
+        bitSet.set(r'[')
+        bitSet.set(r']')
+        bitSet.set(r'!')
+        bitSet.set(r'\n')
         return bitSet
     }
 }

@@ -29,7 +29,11 @@ class DocumentParser <: ParserState {
         ]
     )
 
-    private var line: String = ""
+    private var line: SourceLine = SourceLine.of("", None)
+    /**
+     * Line index (0-based)
+     */
+    private var lineIndex = -1
 
     /**
      * current index (offset) in input line (0-based)
@@ -55,29 +59,35 @@ class DocumentParser <: ParserState {
     private var inlineParserFactory: InlineParserFactory
     private var delimiterProcessors: ArrayList<DelimiterProcessor>
     private var documentBlockParser: DocumentBlockParser
-    private var definitions: HashMap<String, LinkReferenceDefinition> = HashMap<String, LinkReferenceDefinition>()
+    // private var definitions: HashMap<String, LinkReferenceDefinition> = HashMap<String, LinkReferenceDefinition>()
+    private var definitions = Definitions()
 
-    private var activeBlockParsers: ArrayList<AbstractBlockParser> = ArrayList<AbstractBlockParser>()
+    private var openBlockParsers: ArrayList<OpenBlockParser> = ArrayList()
     // LinkedHashSet to have a deterministic order
-    private var allBlockParsers: ArrayList<AbstractBlockParser> = ArrayList<AbstractBlockParser>()
+    private var allBlockParsers: ArrayList<AbstractBlockParser> = ArrayList()
     // private var allBlockParsers: HashSet<AbstractBlockParser> = HashSet<AbstractBlockParser>()
     private let inlineParserContext: InlineParserContext
+    private let includeSourceSpans: IncludeSourceSpans
 
     public init(
         blockParserFactories: ArrayList<BlockParserFactory>,
         inlineParserFactory: InlineParserFactory,
         delimiterProcessors: ArrayList<DelimiterProcessor>,
-        inlineParserContext: InlineParserContext
+        inlineParserContext: InlineParserContext,
+        includeSourceSpans: IncludeSourceSpans
     ) {
         this.blockParserFactories = blockParserFactories
         this.inlineParserFactory = inlineParserFactory
         this.delimiterProcessors = delimiterProcessors
 
-        this.documentBlockParser = DocumentBlockParser()
         this.inlineParserContext = inlineParserContext
-        activateBlockParser(this.documentBlockParser)
+        this.includeSourceSpans = includeSourceSpans
+
+        this.documentBlockParser = DocumentBlockParser()
+        activateBlockParser(OpenBlockParser(this.documentBlockParser, 0))
     }
 
+    @Frozen
     public static func getDefaultBlockParserTypes(): HashSet<NodeType> {
         return CORE_FACTORY_TYPES
     }
@@ -98,46 +108,47 @@ class DocumentParser <: ParserState {
     /**
      * The main parsing function. Returns a parsed document AST.
      */
-    public func parse(inputStr: String): Document {
-        input = inputStr.replace("\0", "\u{FFFD}")
+    public func parse(input: String): Document {
+        this.input = input
         lineStart = 0
-        lineBreak = Parsing.findLineBreak(input, lineStart)
+        lineBreak = Characters.findLineBreak(input, lineStart)
 
         while (lineBreak != -1) {
             var line = input[lineStart..lineBreak]
 
+            let lineStartOld = lineStart
             // 预处理lineStart/lineBreak 便于getNextLine
             if (lineBreak + 1 < input.size && input[lineBreak] == b'\r' && input[lineBreak + 1] == b'\n') {
                 lineStart = lineBreak + 2
             } else {
                 lineStart = lineBreak + 1
             }
-            lineBreak = Parsing.findLineBreak(input, lineStart)
+            lineBreak = Characters.findLineBreak(input, lineStart)
 
-            incorporateLine(line)
+            parseLine(line, lineStartOld)
         }
         if (input.size > 0 && (lineStart == 0 || lineStart < input.size)) {
             var line = input[lineStart..input.size]
-            incorporateLine(line)
+            parseLine(line, lineStart)
         }
 
         return finalizeAndProcess()
     }
 
-    public func parse(input: StringReader<InputStream>): Document { // throws IOException
-        var bufferedReader: StringReader<InputStream> = input
-        while (true) {
-            if (let Some(line) <- bufferedReader.readln()) {
-                incorporateLine(line)
-            } else {
-                break
-            }
+    @Frozen
+    public func parse(input: InputStream): Document {
+        lineStart = 0
+        let reader = StringLineReader(input)
+        while (let Some((line, lbs)) <- reader.readln()) {
+            parseLine(line, lineStart)
+            lineStart += line.size
+            lineStart += lbs
         }
 
         return finalizeAndProcess()
     }
 
-    public func getLine(): String {
+    public func getLine(): SourceLine {
         return line
     }
 
@@ -172,89 +183,122 @@ class DocumentParser <: ParserState {
         return blank
     }
 
+    @Frozen
     public func getActiveBlockParser(): AbstractBlockParser {
-        return activeBlockParsers[activeBlockParsers.size - 1]
+        return openBlockParsers[openBlockParsers.size - 1].blockParser
+    }
+
+    private func setLine(ln: String, inputIndex: Int): Unit {
+        lineIndex++
+        index = 0
+        column = 0
+        columnIsInTab = false
+
+        let lineContent = prepareLine(ln)
+        var sourceSpan: ?SourceSpan = None
+        if (includeSourceSpans.need) {
+            sourceSpan = SourceSpan.of(lineIndex, 0, inputIndex, lineContent.size)
+        }
+        this.line = SourceLine.of(lineContent, sourceSpan)
     }
 
     /**
      * Analyze a line of text and update the document appropriately. We parse markdown text by calling this on each
      * line of input, then finalizing the document.
      */
-    private func incorporateLine(ln: String): Unit {
-        line = ln
-        index = 0
-        column = 0
-        columnIsInTab = false
+    @Frozen
+    private func parseLine(ln: String, inputIndex: Int): Unit {
+        setLine(ln, inputIndex)
 
         // For each containing block, try to parse the associated line start.
         // Bail out on failure: container will poInt64 to the last matching block.
         // Set all_matched to false if not all containers match.
         // The document will always match, can be skipped
         var matches: Int64 = 1
-        let activeBlockParsersSize: Int64 = activeBlockParsers.size
-        if (activeBlockParsersSize > 1) {
-            for (index in 1..activeBlockParsersSize) {
-                let blockParser = activeBlockParsers[index]
-                findNextNonSpace()
+        for (i in 1..openBlockParsers.size) {
+            let openBlockParser = openBlockParsers[i]
+            let blockParser = openBlockParser.blockParser
+            findNextNonSpace()
 
-                var result: ?BlockContinue = blockParser.tryContinue(this)
-                if (result.isSome() && result() is BlockContinueImpl) {
-                    var blockContinueImpl: BlockContinueImpl = (result() as BlockContinueImpl).getOrThrow()
-                    if (blockContinueImpl.isFinalize()) {
-                        finalize(blockParser)
-                        return
-                    } else {
-                        if (blockContinueImpl.getNewIndex() != -1) {
-                            setNewIndex(blockContinueImpl.getNewIndex())
-                        } else if (blockContinueImpl.getNewColumn() != -1) {
-                            setNewColumn(blockContinueImpl.getNewColumn())
-                        }
-                        matches++
-                    }
+            if (let Some(blockContinue: BlockContinueImpl) <- blockParser.tryContinue(this)) {
+                openBlockParser.sourceIndex = getIndex()
+                if (blockContinue.isFinalize()) {
+                    addSourceSpans()
+                    closeBlockParsers(openBlockParsers.size - i)
+                    return
                 } else {
-                    break
+                    if (blockContinue.getNewIndex() != -1) {
+                        setNewIndex(blockContinue.getNewIndex())
+                    } else if (blockContinue.getNewColumn() != -1) {
+                        setNewColumn(blockContinue.getNewColumn())
+                    }
+                    matches++
                 }
+            } else {
+                break
             }
         }
 
-        var matchesEnd: Int64 = activeBlockParsers.size - 1
-        var unmatchedBlockParser = activeBlockParsers
-        var lastMatchedBlockParser: AbstractBlockParser = activeBlockParsers[matches - 1]
-        var blockParser: AbstractBlockParser = lastMatchedBlockParser
-        var allClosed: Bool = matches > activeBlockParsers.size
-
+        var unmatchedBlocks: Int64 = openBlockParsers.size - matches
+        var blockParser = openBlockParsers[matches - 1].blockParser
+        var startedNewBlock = false
+        var lastIndex: Int = index
         // Unless last matched container is a code block, try container starts,
         // adding children to the last matched container:
-        var tryBlockBool: Bool = blockParser.getBlock() is Paragraph || blockParser.isContainer()
-        while (tryBlockBool) {
+        var tryBlockStarts: Bool = blockParser.getBlock() is Paragraph || blockParser.isContainer()
+        while (tryBlockStarts) {
+            lastIndex = index
             findNextNonSpace()
-            if (isBlank() || (indent < Parsing.CODE_BLOCK_INDENT && Parsing.isLetter(line, nextNonSpace))) {
-                setNewIndex(nextNonSpace)
-                break
-            }
-            var blockStartOption: ?BlockStart = findBlockStart(blockParser)
-            if (blockStartOption.isNone()) {
+
+            if (isBlank() || (indent < Parsing.CODE_BLOCK_INDENT && Characters.isLetter(line.getContent(), nextNonSpace))) {
                 setNewIndex(nextNonSpace)
                 break
             }
 
-            if (!allClosed) {
-                finalizeBlocks(unmatchedBlockParser, matches, matchesEnd)
-                allClosed = true
-            }
-            var blockStartImpl = (blockStartOption.getOrThrow() as BlockStartImpl).getOrThrow()
-            if (blockStartImpl.getNewIndex() != -1) {
-                setNewIndex(blockStartImpl.getNewIndex())
-            } else if (blockStartImpl.getNewColumn() != -1) {
-                setNewColumn(blockStartImpl.getNewColumn())
-            }
-            if (blockStartImpl.isReplaceActiveBlockParser()) {
-                prepareActiveBlockParserForReplacement()
+            var blockStart: BlockStartImpl = if (let Some(v) <- findBlockStart(blockParser)) {
+                v
+            } else {
+                setNewIndex(nextNonSpace)
+                break
             }
 
-            for (newBlockParser in blockStartImpl.getBlockParsers()) {
-                blockParser = addChild(newBlockParser)
-                tryBlockBool = newBlockParser.isContainer()
+            startedNewBlock = true
+            var sourceIndex = getIndex()
+
+            // We're starting a new block. If we have any previous blocks that need to be closed, we need to do it now.
+            if (unmatchedBlocks > 0) {
+                closeBlockParsers(unmatchedBlocks)
+                unmatchedBlocks = 0
+            }
+
+            if (blockStart.getNewIndex() != -1) {
+                setNewIndex(blockStart.getNewIndex())
+            } else if (blockStart.getNewColumn() != -1) {
+                setNewColumn(blockStart.getNewColumn())
+            }
+
+            var replacedSourceSpans: ?ArrayList<SourceSpan> = None
+            if (blockStart.getReplaceParagraphLines() >= 1 || blockStart.isReplaceActiveBlockParser()) {
+                var activeBlockParser = getActiveBlockParser()
+                if (let Some(paragraphParser: ParagraphParser) <- (activeBlockParser as ParagraphParser)) {
+                    var lines = if (blockStart.isReplaceActiveBlockParser()) {
+                        Int64.Max
+                    } else {
+                        blockStart.getReplaceParagraphLines()
+                    }
+                    replacedSourceSpans = replaceParagraphLines(lines, paragraphParser)
+                } else if (blockStart.isReplaceActiveBlockParser()) {
+                    replacedSourceSpans = prepareActiveBlockParserForReplacement(activeBlockParser)
+                }
+            }
+
+            for (newBlockParser in blockStart.getBlockParsers()) {
+                addChild(OpenBlockParser(newBlockParser, sourceIndex))
+                if (let Some(v) <- replacedSourceSpans) {
+                    newBlockParser.getBlock().setSourceSpans(v)
+                }
+                blockParser = newBlockParser
+                tryBlockStarts = newBlockParser.isContainer()
             }
         }
 
@@ -262,22 +306,31 @@ class DocumentParser <: ParserState {
         // appropriate block.
 
         // First check for a lazy paragraph continuation:
-        if (!allClosed && !isBlank() && getActiveBlockParser().canHaveLazyContinuationLines()) {
+        if (!startedNewBlock && !isBlank() && getActiveBlockParser().canHaveLazyContinuationLines()) { /*cjlint-ignore !G.EXP.03 */
             // lazy paragraph continuation
             addLine()
         } else {
 
             // finalize any blocks not matched
-            if (!allClosed) {
-                finalizeBlocks(unmatchedBlockParser, matches, matchesEnd)
+            if (unmatchedBlocks > 0) {
+                closeBlockParsers(unmatchedBlocks)
             }
 
             if (!blockParser.isContainer()) {
                 addLine()
             } else if (!isBlank()) {
                 // create paragraph container for line
-                addChild(ParagraphParser())
+                addChild(OpenBlockParser(ParagraphParser(), lastIndex))
                 addLine()
+            } else {
+                // This can happen for a list item like this:
+                // ```
+                // *
+                // list item
+                // ```
+                //
+                // The first line does not start a paragraph yet, but we still want to record source positions.
+                addSourceSpans()
             }
         }
     }
@@ -287,9 +340,9 @@ class DocumentParser <: ParserState {
         var colsNum: Int64 = column
 
         blank = true
-        var length: Int64 = line.size
+        var length: Int64 = line.getContent().size
         while (i < length) {
-            var c = line[i]
+            var c = line.getContent()[i]
             if (c == b' ') {
                 i++
                 colsNum++
@@ -314,7 +367,7 @@ class DocumentParser <: ParserState {
             index = nextNonSpace
             column = nextNonSpaceColumn
         }
-        var length: Int64 = line.size
+        var length: Int64 = line.getContent().size
         while (index < newIndex && index != length) {
             advance()
         }
@@ -328,7 +381,7 @@ class DocumentParser <: ParserState {
             index = nextNonSpace
             column = nextNonSpaceColumn
         }
-        var length: Int64 = line.size
+        var length: Int64 = line.getContent().size
         while (column < newColumnNum && index != length) {
             advance()
         }
@@ -349,20 +402,45 @@ class DocumentParser <: ParserState {
         var content: String
         if (columnIsInTab) {
             var afterTab: Int64 = index + 1
-            var rest = line[afterTab..line.size]
+            var rest = line.getContent()[afterTab..line.getContent().size]
             var spaces: Int64 = Parsing.columnsToNextTabStop(column)
             var sb: StringBuilder = StringBuilder(spaces + rest.size)
             sb.append(" " * spaces)
             sb.append(rest)
             content = sb.toString()
+        } else if (index == 0) {
+            content = line.getContent()
         } else {
-            content = line[index..line.size]
+            content = line.getContent()[index..line.getContent().size]
         }
-        getActiveBlockParser().addLine(content)
+        var sourceSpan: ?SourceSpan = None
+        if (includeSourceSpans == IncludeSourceSpans.BLOCKS_AND_INLINES && index < (line.getSourceSpan()?.getLength() ??
+            -1)) {
+            // Note that if we're in a partially-consumed tab the length of the source span and the content don't match.
+            sourceSpan = line.getSourceSpan()?.subSpan(index)
+        }
+        getActiveBlockParser().addLine(SourceLine.of(content, sourceSpan))
+        addSourceSpans()
+    }
+
+    private func addSourceSpans(): Unit {
+        if (includeSourceSpans.need) {
+            // Don't add source spans for Document itself (it would get the whole source text), so start at 1, not 0
+            for (i in 1..openBlockParsers.size) {
+                var openBlockParser = openBlockParsers[i]
+                // In case of a lazy continuation line, the index is less than where the block parser would expect the
+                // contents to start, so let's use whichever is smaller.
+                let blockIndex = min(openBlockParser.sourceIndex, index)
+                let length = line.getContent().size - blockIndex
+                if (let Some(ss) <- line.getSourceSpan() && length != 0) {
+                    openBlockParser.blockParser.addSourceSpan(ss.subSpan(blockIndex))
+                }
+            }
+        }
     }
 
     private func advance(): Unit {
-        var lineChar = line[index]
+        var lineChar = line.getContent()[index]
         if (lineChar == b'\t') {
             index++
             column = Parsing.columnsToNextTabStop(column) + column
@@ -372,12 +450,13 @@ class DocumentParser <: ParserState {
         }
     }
 
-    private func findBlockStart(blockParser: AbstractBlockParser): Option<BlockStart> {
+    @Frozen
+    private func findBlockStart(blockParser: AbstractBlockParser): Option<BlockStartImpl> {
         var matchedBlockParser: MatchedBlockParser = MatchedBlockParserImpl(blockParser)
         for (blockParserFactory in blockParserFactories) {
             var result: ?BlockStart = blockParserFactory.tryStart(this, matchedBlockParser)
-            if (result.isSome() && result.getOrThrow() is BlockStartImpl) {
-                return result
+            if (let Some(v: BlockStartImpl) <- result) {
+                return v
             }
         }
         return None
@@ -388,29 +467,22 @@ class DocumentParser <: ParserState {
      * setting the 'tight' or 'loose' status of a list, and parsing the beginnings of paragraphs for reference
      * definitions.
      */
-    private func finalize(blockParser: AbstractBlockParser): Unit {
-        if (refEq(getActiveBlockParser(), blockParser)) {
-            deactivateBlockParser()
-        }
-
-        if (blockParser is ParagraphParser) {
-            addDefinitionsFrom((blockParser as ParagraphParser).getOrThrow())
-        }
-
+    private func finalize(blockParser: BlockParser): Unit {
+        addDefinitionsFrom(blockParser)
         blockParser.closeBlock()
     }
 
-    private func addDefinitionsFrom(paragraphParser: ParagraphParser): Unit {
-        for (definition in paragraphParser.getDefinitions()) {
-            // Add nodes into document before paragraph.
-            paragraphParser.getBlock().insertBefore(definition)
-
-            var label: String = definition.getLabel().getOrThrow()
-            // spec: When there are multiple matching link reference definitions, the first is used
-            if (!definitions.contains(label)) {
-                definitions.add(label, definition)
-            }
+    private func addDefinitionsFrom(blockParser: BlockParser): Unit {
+        for (ref in blockParser.getDefinitions()) {
+            definitions.addDefinition(ref)
         }
+    }
+
+    /**
+     * Prepares the input line replacing {@code \0}
+     */
+    private static func prepareLine(line: String): String {
+        line.replace("\0", "\u{FFFD}")
     }
 
     /**
@@ -420,9 +492,9 @@ class DocumentParser <: ParserState {
         var context = InlineParserContextImpl(
             inlineParserContext.getCustomInlineContentParserFactories(),
             delimiterProcessors,
-            definitions,
             inlineParserContext.getCustomLinkProcessors(),
-            inlineParserContext.getCustomLinkMarkers()
+            inlineParserContext.getCustomLinkMarkers(),
+            definitions
         )
         if (let Some(ctx) <- (this.inlineParserContext as InlineParserContextImpl)) {
             ctx.calc()
@@ -439,65 +511,58 @@ class DocumentParser <: ParserState {
      * Add block of type tag as a child of the tip. If the tip can't  accept children, close and finalize it and try
      * its parent, and so on til we find a block that can accept children.
      */
-    private func addChild(blockParser: AbstractBlockParser): AbstractBlockParser {
-        while (!getActiveBlockParser().canContain(blockParser.getBlock())) {
-            finalize(getActiveBlockParser())
+    private func addChild(openBlockParser: OpenBlockParser): Unit {
+        while (!getActiveBlockParser().canContain(openBlockParser.blockParser.getBlock())) {
+            closeBlockParsers(1)
         }
 
-        getActiveBlockParser().getBlock().appendChild(blockParser.getBlock())
-        activateBlockParser(blockParser)
-
-        return blockParser
+        getActiveBlockParser().getBlock().appendChild(openBlockParser.blockParser.getBlock())
+        activateBlockParser(openBlockParser)
     }
 
-    private func activateBlockParser(blockParser: AbstractBlockParser): Unit {
-        activeBlockParsers.add(blockParser)
-        allBlockParsers.add(blockParser)
+    @Frozen
+    private func activateBlockParser(openBlockParser: OpenBlockParser): Unit {
+        openBlockParsers.add(openBlockParser)
     }
 
-    private func deactivateBlockParser(): Unit {
-        activeBlockParsers.remove(at: activeBlockParsers.size - 1)
+    private func deactivateBlockParser(): OpenBlockParser {
+        openBlockParsers.remove(at: openBlockParsers.size - 1)
     }
 
-    private func prepareActiveBlockParserForReplacement(): Unit {
-        let oldParser: AbstractBlockParser = getActiveBlockParser()
+    private func replaceParagraphLines(lines: Int, paragraphParser: ParagraphParser): ArrayList<SourceSpan> {
+        // Remove lines from paragraph as the new block is using them.
+        // If all lines are used, this also unlinks the Paragraph block.
+        var sourceSpans = paragraphParser.removeLines(lines)
+        // Close the paragraph block parser, which will finalize it.
+        closeBlockParsers(1)
+        return sourceSpans
+    }
+    private func prepareActiveBlockParserForReplacement(blockParser: BlockParser): ArrayList<SourceSpan> {
+        // Note that we don't want to parse inlines here, as it's getting replaced.
         deactivateBlockParser()
-        for (i in 0..allBlockParsers.size) {
-            if (refEq(allBlockParsers[i], oldParser)) {
-                allBlockParsers.remove(at: i)
-            }
-        }
 
-        if (oldParser is ParagraphParser) {
-            var paragraphParser: ParagraphParser = (oldParser as ParagraphParser).getOrThrow()
-            addDefinitionsFrom(paragraphParser)
-        }
-
-        oldParser.getBlock().unlink()
-    }
-
-    /**
-     * blocks Finalize
-     */
-    private func finalizeBlocks(blockParsers: ArrayList<AbstractBlockParser>): Unit {
-        // for (Int64 i = blockParsers.size() - 1; i >= 0; i--) {
-        for (i in blockParsers.size - 1..=0 : -1) {
-            var blockParser: AbstractBlockParser = blockParsers[i]
-            finalize(blockParser)
-        }
-    }
-
-    private func finalizeBlocks(blockParsers: ArrayList<AbstractBlockParser>, start: Int64, end: Int64): Unit {
-        for (i in end..=start : -1) {
-            var blockParser: AbstractBlockParser = blockParsers[i]
-            finalize(blockParser)
-        }
+        // Do this so that source positions are calculated, which we will carry over to the replacing block.
+        blockParser.closeBlock()
+        blockParser.getBlock().unlink()
+        return blockParser.getBlock().getSourceSpans()
     }
 
     private func finalizeAndProcess(): Document {
-        finalizeBlocks(this.activeBlockParsers)
-        this.processInlines()
-        return this.documentBlockParser.getBlock()
+        closeBlockParsers(openBlockParsers.size)
+        processInlines()
+        return documentBlockParser.getBlock()
+    }
+
+    @Frozen
+    private func closeBlockParsers(count: Int): Unit {
+        for (_ in 0..count) {
+            let blockParser = deactivateBlockParser().blockParser
+            finalize(blockParser)
+            // Remember for inline parsing. Note that a lot of blocks don't need inline parsing. We could have a
+            // separate interface (e.g. BlockParserWithInlines) so that we only have to remember those that actually
+            // have inlines to parse.
+            allBlockParsers.add(blockParser)
+        }
     }
 }
 
@@ -512,16 +577,14 @@ class MatchedBlockParserImpl <: MatchedBlockParser {
         return matchedBlockParser
     }
 
-    public func getParagraphContent(): ?String {
-        if (matchedBlockParser is ParagraphParser) {
-            var paragraphParser: ParagraphParser = (matchedBlockParser as ParagraphParser).getOrThrow()
-            var content: String = paragraphParser.getContentString().toString()
-            if (content.size == 0) {
-                return None
-            }
-
-            return content
+    public func getParagraphLines(): SourceLines {
+        match (matchedBlockParser) {
+            case v: ParagraphParser => v.getParagraphLines()
+            case _ => SourceLines.empty()
         }
-        return None
     }
+}
+
+class OpenBlockParser {
+    OpenBlockParser(let blockParser: AbstractBlockParser, var sourceIndex: Int) {}
 }

@@ -3,7 +3,7 @@
  */
 package commonmark4cj.commonmark
 
-public class LinkScannerV2 {
+public class LinkScanner {
     /**
      * Attempt to scan the contents of a link label (inside the brackets), stopping after the content or returning false.
      * The stopped position can bei either the closing {@code ]}, or the end of the line if the label continues on
@@ -17,14 +17,12 @@ public class LinkScannerV2 {
                     if (isEscapable(scanner.peek())) {
                         scanner.next()
                     }
-                case ']' => 
-                return true
+                case ']' => return true
                 case '[' =>
                     // spec: Unescaped square bracket characters are not allowed inside the opening and closing
                     // square brackets of link labels.
                     return false
-                case _ => 
-                scanner.next()
+                case _ => scanner.next()
             }
         }
         return true
@@ -38,7 +36,7 @@ public class LinkScannerV2 {
             return false
         }
 
-        if (scanner.next('<')) {
+        if (scanner.next(b'<')) {
             while (scanner.hasNext()) {
                 match (scanner.peek()) {
                     case '\\' =>
@@ -64,10 +62,10 @@ public class LinkScannerV2 {
             return false
         }
 
-        let endDelimiter: Rune = match (scanner.peek()) {
-            case '"' => r'"'
-            case '\'' => r'\''
-            case '(' => r')'
+        let endDelimiter: Byte = match (scanner.peek()) {
+            case '"' => b'"'
+            case '\'' => b'\''
+            case '(' => b')'
             case _ => return false
         }
         scanner.next()
@@ -82,17 +80,17 @@ public class LinkScannerV2 {
         return true
     }
 
-    public static func scanLinkTitleContent(scanner: Scanner, endDelimiter: Rune): Bool {
+    public static func scanLinkTitleContent(scanner: Scanner, endDelimiter: Byte): Bool {
         while (scanner.hasNext()) {
-            let c: Rune = scanner.peek()
-            if (c == r'\\') {
+            let c: Byte = scanner.peek()
+            if (c == b'\\') {
                 scanner.next()
                 if (isEscapable(scanner.peek())) {
                     scanner.next()
                 }
             } else if (c == endDelimiter) {
                 return true
-            } else if (endDelimiter == r')' && c == r'(') {
+            } else if (endDelimiter == b')' && c == b'(') {
                 // unescaped '(' in title within parens is invalid
                 return false
             } else {
@@ -132,8 +130,9 @@ public class LinkScannerV2 {
                     }
                     scanner.next()
                 case _ =>
+                    let char = scanner.peek()
                     // or control character
-                    if (isISOControl(c)) {
+                    if (isISOControl(scanner)) {
                         return !empty
                     }
                     scanner.next()
@@ -143,15 +142,32 @@ public class LinkScannerV2 {
         return true
     }
 
-    private static func isEscapable(c: Rune): Bool {
-        match (c) {
-            case '!' | '"' | '#' | '$' | '%' | '&' | '\'' | '(' | ')' | '*' | '+' | ',' | '-' | '.' | '/' | ':' | ';' | '<' | '=' | '>' | '?' | '@' | '[' | '\\' | ']' | '^' | '_' | '`' | '{' | '|' | '}' | '~' => return true
-            case _ => return false
+    private static func isISOControl(scanner: Scanner): Bool {
+        let b = scanner.peek()
+        // (0x00 <= codePoint <= 0x1F) || (0x7F <= codePoint <= 0x9F);
+        if (0x00 <= b && b <= 0x1F) {
+            return true
         }
+        if (b == 0x7F) {
+            return true
+        }
+        if (b == 194) {
+            let pos = scanner.position()
+            scanner.next()
+            let b2 = scanner.peek()
+            scanner.setPosition(pos)
+            if (128 <= b2 && b2 <= 159) {
+                return true
+            }
+        }
+        return false
     }
+}
 
-    private static func isISOControl(codePoint: Rune): Bool {
-        let u32 = UInt32(codePoint)
-        return u32 <= 0x9F && (u32 >= 0x7F || (u32 >> 5 == 0x00))
+func isEscapable(c: Byte): Bool {
+    match (c) {
+        case '!' | '"' | '#' | '$' | '%' | '&' | '\'' | '(' | ')' | '*' | '+' | ',' | '-' | '.' | '/' | ':' | ';' | '<'
+            | '=' | '>' | '?' | '@' | '[' | '\\' | ']' | '^' | '_' | '`' | '{' | '|' | '}' | '~' => return true
+        case _ => return false
     }
 }

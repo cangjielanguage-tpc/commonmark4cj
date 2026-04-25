@@ -4,7 +4,11 @@
 
 package commonmark4cj.commonmark
 
+import std.deriving.*
+
 public abstract class AbstractBlockParser <: BlockParser {
+    var sourceIndex: Int = -1
+
     public open func isContainer(): Bool {
         return false
     }
@@ -13,11 +17,22 @@ public abstract class AbstractBlockParser <: BlockParser {
         return false
     }
 
+    @Frozen
     public open func canContain(_: Block): Bool {
         return false
     }
 
-    public open func addLine(_: String): Unit {}
+    public open func addLine(_: SourceLine): Unit {}
+
+    public open func addSourceSpan(sourceSpan: SourceSpan): Unit {
+        getBlock().addSourceSpan(sourceSpan)
+    }
+
+    @Frozen
+    public open func getDefinitions(): ArrayList<LinkReferenceDefinition> {
+        return EMPTY_DefinitionMap_LIST
+    }
+    private static let EMPTY_DefinitionMap_LIST = ArrayList<LinkReferenceDefinition>(1)
 
     public open func closeBlock(): Unit {}
 
@@ -30,6 +45,7 @@ public abstract class AbstractBlockParserFactory <: BlockParserFactory {}
 public open class BlockContinue {
     protected init() {}
 
+    @Frozen
     public static func none(): Option<BlockContinue> {
         return None
     }
@@ -71,11 +87,27 @@ public interface BlockParser {
 
     func canContain(childBlock: Block): Bool
 
+    @Frozen
     func getBlock(): Block
 
+    @Frozen
     func tryContinue(parserState: ParserState): Option<BlockContinue>
 
-    func addLine(line: String): Unit
+    func addLine(line: SourceLine): Unit
+
+    /**
+     * Add a source span of the currently parsed block. The default implementation in {@link AbstractBlockParser} adds
+     * it to the block. Unless you have some complicated parsing where you need to check source positions, you don't
+     * need to override this.
+     */
+    func addSourceSpan(sourceSpan: SourceSpan): Unit
+
+    /**
+     * Return definitions parsed by this parser. The definitions returned here can later be accessed during inline
+     * parsing via {@link org.commonmark.parser.InlineParserContext#getDefinition}.
+     */
+    @Frozen
+    func getDefinitions(): ArrayList<LinkReferenceDefinition>
 
     func closeBlock(): Unit
 
@@ -88,6 +120,7 @@ public interface BlockParser {
  * Implementations should subclass {@link BlockParserFactory} instead of implementing this directly.
  */
 public interface BlockParserFactory {
+    @Frozen
     func tryStart(state: ParserState, matchedBlockParser: MatchedBlockParser): Option<BlockStart>
 }
 
@@ -98,11 +131,13 @@ public abstract class BlockStart {
     protected init() {
     }
 
+    @Frozen
     public static func none(): Option<BlockStart> {
         return None
     }
 
-    public static func of4Cj(blockParsers: Array<AbstractBlockParser>): BlockStart {
+    @Frozen
+    public static func of(blockParsers: Array<AbstractBlockParser>): BlockStart {
         return BlockStartImpl(blockParsers)
     }
 
@@ -110,7 +145,12 @@ public abstract class BlockStart {
 
     public func atColumn(newColumn: Int64): BlockStart
 
+    /*
+     * @Deprecated
+     */
     public func replaceActiveBlockParser(): BlockStart
+
+    public func replaceParagraphLines(lines: Int): BlockStart
 }
 
 /**
@@ -121,13 +161,7 @@ public abstract class BlockStart {
 public interface MatchedBlockParser {
     func getMatchedBlockParser(): AbstractBlockParser
 
-    /**
-     * Returns the current content of the paragraph if the matched block is a paragraph. The content can be multiple
-     * lines separated by {@code '\n'}.
-     *
-     * @return paragraph content or {@code null}
-     */
-    func getParagraphContent(): ?String
+    func getParagraphLines(): SourceLines
 }
 
 /**
@@ -139,7 +173,7 @@ public interface ParserState {
     /**
      * @return the current line
      */
-    func getLine(): String
+    func getLine(): SourceLine
     func getNextLine(): String
 
     /**
@@ -242,16 +276,18 @@ class BlockQuoteParser <: AbstractBlockParser {
         return true
     }
 
+    @Frozen
     public func getBlock(): BlockQuote {
         return block
     }
 
+    @Frozen
     public func tryContinue(state: ParserState): Option<BlockContinue> {
         var nextNonSpace: Int64 = state.getNextNonSpaceIndex()
         if (isMarker(state, nextNonSpace)) {
             var newColumn: Int64 = state.getColumn() + state.getIndent() + 1
             // optional following space or tab
-            if (Parsing.isSpaceOrTab(state.getLine(), nextNonSpace + 1)) {
+            if (Characters.isSpaceOrTab(state.getLine().getContent(), nextNonSpace + 1)) {
                 newColumn++
             }
             return BlockContinue.atColumn(newColumn)
@@ -261,21 +297,22 @@ class BlockQuoteParser <: AbstractBlockParser {
     }
 
     public static func isMarker(state: ParserState, index: Int64): Bool {
-        var line = state.getLine()
+        var line = state.getLine().getContent()
         return state.getIndent() < Parsing.CODE_BLOCK_INDENT && index < line.size && line[index] == b'>'
     }
 }
 
 public class BlockQuoteParserFactory <: BlockParserFactory {
+    @Frozen
     public func tryStart(state: ParserState, _: MatchedBlockParser): Option<BlockStart> {
         var nextNonSpace: Int64 = state.getNextNonSpaceIndex()
         if (BlockQuoteParser.isMarker(state, nextNonSpace)) {
             var newColumn: Int64 = state.getColumn() + state.getIndent() + 1
             // optional following space or tab
-            if (Parsing.isSpaceOrTab(state.getLine(), nextNonSpace + 1)) {
+            if (Characters.isSpaceOrTab(state.getLine().getContent(), nextNonSpace + 1)) {
                 newColumn++
             }
-            return (BlockStart.of4Cj(BlockQuoteParser()) as BlockStartImpl).getOrThrow().atColumn(newColumn)
+            return (BlockStart.of(BlockQuoteParser()) as BlockStartImpl).getOrThrow().atColumn(newColumn)
         } else {
             return BlockStart.none()
         }
@@ -287,6 +324,7 @@ class BlockStartImpl <: BlockStart {
     private var newIndex: Int64 = -1
     private var newColumn: Int64 = -1
     private var replaceActiveBlockParserFlg: Bool = false
+    private var replaceParagraphLines_ = 0
 
     public init(blockParsers: Array<AbstractBlockParser>) {
         this.blockParsers = blockParsers
@@ -323,6 +361,17 @@ class BlockStartImpl <: BlockStart {
         this.replaceActiveBlockParserFlg = true
         return this
     }
+
+    public func replaceParagraphLines(lines: Int): BlockStart {
+        if (!(lines >= 1)) {
+            throw IllegalArgumentException("Lines must be >= 1")
+        }
+        this.replaceParagraphLines_ = lines
+        return this
+    }
+    func getReplaceParagraphLines(): Int {
+        return replaceParagraphLines_
+    }
 }
 
 class DocumentBlockParser <: AbstractBlockParser {
@@ -336,15 +385,17 @@ class DocumentBlockParser <: AbstractBlockParser {
         return true
     }
 
+    @Frozen
     public func getBlock(): Document {
         return document
     }
 
+    @Frozen
     public func tryContinue(state: ParserState): Option<BlockContinue> {
         return BlockContinue.atIndex(state.getIndex())
     }
 
-    public func addLine(_: String): Unit {}
+    public func addLine(_: SourceLine): Unit {}
 }
 
 class FencedCodeBlockParser <: AbstractBlockParser {
@@ -359,16 +410,17 @@ class FencedCodeBlockParser <: AbstractBlockParser {
         block.setFenceIndent(fenceIndent)
     }
 
+    @Frozen
     public func getBlock(): Block {
         return block
     }
 
+    @Frozen
     public func tryContinue(state: ParserState): Option<BlockContinue> {
         var nextNonSpace: Int64 = state.getNextNonSpaceIndex()
         var newIndex = state.getIndex()
-        var line = state.getLine()
-        var closing: Bool = state.getIndent() < Parsing.CODE_BLOCK_INDENT && isClosing(line, nextNonSpace)
-        if (closing) {
+        var line = state.getLine().getContent()
+        if (state.getIndent() < Parsing.CODE_BLOCK_INDENT && nextNonSpace < line.size && tryClosing(line, nextNonSpace)) {
             // closing fence - we're at end of line, so we can finalize now
             return BlockContinue.finished()
         } else {
@@ -383,11 +435,11 @@ class FencedCodeBlockParser <: AbstractBlockParser {
         return BlockContinue.atIndex(newIndex)
     }
 
-    public func addLine(line: String): Unit {
+    public func addLine(line: SourceLine): Unit {
         if (firstLine.isNone()) {
-            firstLine = line
+            firstLine = line.getContent()
         } else {
-            otherLines.append(line)
+            otherLines.append(line.getContent())
             otherLines.append('\n')
         }
     }
@@ -400,13 +452,14 @@ class FencedCodeBlockParser <: AbstractBlockParser {
 
     // spec: A code fence is a sequence of at least three consecutive backtick characters (`) or tildes (~). (Tildes and
     // backticks cannot be mixed.)
+    @Frozen
     public static func checkOpener(line: String, index: Int64, indent: Int64): Option<FencedCodeBlockParser> {
         var backticks: Int64 = 0
         var tildes: Int64 = 0
         var length: Int64 = line.size
         var i: Int64 = index
-        while(i < length) {
-            match(line[i]) {
+        while (i < length) {
+            match (line[i]) {
                 case '`' => backticks++
                 case '~' => tildes++
                 case _ => break
@@ -416,7 +469,7 @@ class FencedCodeBlockParser <: AbstractBlockParser {
 
         if (backticks >= 3 && tildes == 0) {
             // spec: If the info string comes after a backtick fence, it may not contain any backtick characters.
-            if (Parsing.find(b'`', line, index + backticks) != -1) {
+            if (Characters.find(b'`', line, index + backticks) != -1) {
                 return None
             }
             return FencedCodeBlockParser(r'`', backticks, indent)
@@ -431,20 +484,21 @@ class FencedCodeBlockParser <: AbstractBlockParser {
     // spec: The content of the code block consists of all subsequent lines, until a closing code fence of the same type
     // as the code block began with (backticks or tildes), and with at least as many backticks or tildes as the opening
     // code fence.
-    private func isClosing(line: String, index: Int64): Bool {
+    private func tryClosing(line: String, index: Int64): Bool {
         var fenceChar: Byte = UInt8(UInt32(block.getFenceChar()))
         var fenceLength: Int64 = block.getFenceLength()
-        var fences: Int64 = Parsing.skip(fenceChar, line, index, line.size) - index
+        var fences: Int64 = Characters.skip(fenceChar, line, index, line.size) - index
         if (fences < fenceLength) {
             return false
         }
         // spec: The closing code fence [...] may be followed only by spaces, which are ignored.
-        var after: Int64 = Parsing.skipSpaceTab(line, index + fences, line.size)
+        var after: Int64 = Characters.skipSpaceTab(line, index + fences, line.size)
         return after == line.size
     }
 }
 
 public class FencedCodeBlockParserFactory <: BlockParserFactory {
+    @Frozen
     public func tryStart(state: ParserState, _: MatchedBlockParser): Option<BlockStart> {
         var indent: Int64 = state.getIndent()
         if (indent >= Parsing.CODE_BLOCK_INDENT) {
@@ -452,10 +506,9 @@ public class FencedCodeBlockParserFactory <: BlockParserFactory {
         }
 
         var nextNonSpace: Int64 = state.getNextNonSpaceIndex()
-        var blockParser: ?FencedCodeBlockParser = FencedCodeBlockParser.checkOpener(state.getLine(), nextNonSpace,
-            indent)
+        var blockParser = FencedCodeBlockParser.checkOpener(state.getLine().getContent(), nextNonSpace, indent)
         match (blockParser) {
-            case Some(value) => return BlockStart.of4Cj(value).atIndex(nextNonSpace + value.block.getFenceLength())
+            case Some(value) => return BlockStart.of(value).atIndex(nextNonSpace + value.block.getFenceLength())
             case _ => return BlockStart.none()
         }
     }
@@ -463,17 +516,19 @@ public class FencedCodeBlockParserFactory <: BlockParserFactory {
 
 class HeadingParser <: AbstractBlockParser {
     private var block: Heading = Heading()
-    private var content: String
+    private var content: SourceLines
 
-    public init(level: Int64, content: String) {
+    public init(level: Int64, content: SourceLines) {
         block.setLevel(level)
         this.content = content
     }
 
+    @Frozen
     public func getBlock(): Block {
         return block
     }
 
+    @Frozen
     public func tryContinue(_: ParserState): Option<BlockContinue> {
         // In both ATX and Setext headings, once we have the heading markup, there's nothing more to parse.
         return BlockContinue.none()
@@ -487,78 +542,111 @@ class HeadingParser <: AbstractBlockParser {
     // 1–6 unescaped # characters and an optional closing sequence of any number of unescaped # characters. The opening
     // sequence of # characters must be followed by a space or by the end of line. The optional closing sequence of #s
     // must be preceded by a space and may be followed by spaces only.
-    public static func getAtxHeading(line: String, index: Int64): Option<HeadingParser> {
-        var level: Int64 = Parsing.skip(b'#', line, index, line.size) - index
+    @Frozen
+    public static func getAtxHeading(line: SourceLine): Option<HeadingParser> {
+        let scanner = Scanner.of(SourceLines.of(line))
+        var level: Int64 = scanner.matchMultiple(b'#')
 
         if (level == 0 || level > 6) {
             return None
         }
 
-        var start: Int64 = index + level
-        if (start >= line.size) {
+        if (!scanner.hasNext()) {
             // End of line after markers is an empty heading
-            return HeadingParser(level, EMPTY_STRING)
+            return HeadingParser(level, SourceLines.empty())
         }
 
-        var next = line[start]
+        var next = scanner.peek()
         if (!(next == b' ' || next == b'\t')) {
             return None
         }
 
-        var beforeSpace: Int64 = Parsing.skipSpaceTabBackwards(line, line.size - 1, start)
-        var beforeHash: Int64 = Parsing.skipBackwards(b'#', line, beforeSpace, start)
-        var beforeTrailer: Int64 = Parsing.skipSpaceTabBackwards(line, beforeHash, start)
-        var lines: String
-        if (beforeTrailer != beforeHash) {
-            lines = line[start..beforeTrailer + 1]
-            return HeadingParser(level, lines)
-        } else {
-            lines = line[start..beforeSpace + 1]
-            return HeadingParser(level, lines)
+        scanner.whitespace()
+        let start = scanner.position()
+        var end = start
+        var hashCanEnd = true
+
+        while (scanner.hasNext()) {
+            let c = scanner.peek()
+            match (c) {
+                case b'#' =>
+                    if (hashCanEnd) {
+                        scanner.matchMultiple(b'#')
+                        let whitespace = scanner.whitespace()
+                        // If there's other characters, the hashes and spaces were part of the heading
+                        if (scanner.hasNext()) {
+                            end = scanner.position()
+                        }
+                        hashCanEnd = whitespace > 0
+                    } else {
+                        scanner.next()
+                        end = scanner.position()
+                    }
+                case b' ' | '\t' =>
+                    hashCanEnd = true
+                    scanner.next()
+                case _ =>
+                    hashCanEnd = false
+                    scanner.next()
+                    end = scanner.position()
+            }
         }
+
+        let source = scanner.getSource(start, end)
+        let content = source.getContent()
+        if (content.isEmpty()) {
+            return HeadingParser(level, SourceLines.empty())
+        }
+        return HeadingParser(level, source)
     }
 
     // spec: A setext heading underline is a sequence of = characters or a sequence of - characters, with no more than
     // 3 spaces indentation and any number of trailing spaces.
     public static func getSetextHeadingLevel(line: String, index: Int64): Int64 {
         match (line[index]) {
-            case '=' => if (isSetextHeadingRest(line, index + 1, b'=')) {
-                return 1
-            }
-            case '-' => if (isSetextHeadingRest(line, index + 1, b'-')) {
-                return 2
-            }
+            case '=' =>
+                if (isSetextHeadingRest(line, index + 1, b'=')) {
+                    return 1
+                }
+            case '-' =>
+                if (isSetextHeadingRest(line, index + 1, b'-')) {
+                    return 2
+                }
             case _ => return 0
         }
         return 0
     }
     private static func isSetextHeadingRest(line: String, index: Int64, marker: Byte): Bool {
-        var afterMarker: Int64 = Parsing.skip(marker, line, index, line.size)
-        var afterSpace: Int64 = Parsing.skipSpaceTab(line, afterMarker, line.size)
+        var afterMarker: Int64 = Characters.skip(marker, line, index, line.size)
+        var afterSpace: Int64 = Characters.skipSpaceTab(line, afterMarker, line.size)
         return afterSpace >= line.size
     }
 }
 
 public class HeadingParserFactory <: BlockParserFactory {
+    @Frozen
     public func tryStart(state: ParserState, matchedBlockParser: MatchedBlockParser): Option<BlockStart> {
         if (state.getIndent() >= Parsing.CODE_BLOCK_INDENT) {
             return BlockStart.none()
         }
 
-        var line: String = state.getLine()
-        var nextNonSpace: Int64 = state.getNextNonSpaceIndex()
-        var atxHeading: Option<HeadingParser> = HeadingParser.getAtxHeading(line, nextNonSpace)
-        if (atxHeading.isSome()) {
-            return BlockStart.of4Cj([atxHeading.getOrThrow()]).atIndex(line.size)
+        let line = state.getLine()
+        let nextNonSpace = state.getNextNonSpaceIndex()
+        if (line.getContent()[nextNonSpace] == b'#') {
+            let atxHeading = HeadingParser.getAtxHeading(line.substring(nextNonSpace, line.getContent().size))
+            if (let Some(atxHeading) <- atxHeading) {
+                return BlockStart.of(atxHeading).atIndex(line.getContent().size)
+            }
         }
 
-        var setextHeadingLevel: Int64 = HeadingParser.getSetextHeadingLevel(line, nextNonSpace)
+        let setextHeadingLevel = HeadingParser.getSetextHeadingLevel(line.getContent(), nextNonSpace)
         if (setextHeadingLevel > 0) {
-            var paragraph: ?String = matchedBlockParser.getParagraphContent()
-            if (paragraph.isSome()) {
-                var content: String = paragraph()
-                return BlockStart.of4Cj(HeadingParser(setextHeadingLevel, content)).atIndex(line.size).
-                    replaceActiveBlockParser()
+            let paragraph = matchedBlockParser.getParagraphLines()
+            if (!paragraph.isEmpty()) {
+                return BlockStart
+                    .of(HeadingParser(setextHeadingLevel, paragraph))
+                    .atIndex(line.getContent().size)
+                    .replaceParagraphLines(paragraph.getLines().size)
             }
         }
 
@@ -567,6 +655,19 @@ public class HeadingParserFactory <: BlockParserFactory {
 }
 
 class HtmlBlockParser <: AbstractBlockParser {
+    private static let TAGNAME: String = "[A-Za-z][A-Za-z0-9-]*"
+    private static let ATTRIBUTENAME: String = "[a-zA-Z_:][a-zA-Z0-9:._-]*"
+    private static let UNQUOTEDVALUE: String = "[^\"'=<>`\\x00-\\x20]+"
+    private static let SINGLEQUOTEDVALUE: String = "'[^']*'"
+    private static let DOUBLEQUOTEDVALUE: String = "\"[^\"]*\""
+    private static let ATTRIBUTEVALUE: String = "(?:" + UNQUOTEDVALUE + "|" + SINGLEQUOTEDVALUE + "|" + DOUBLEQUOTEDVALUE +
+        ")"
+    private static let ATTRIBUTEVALUESPEC: String = "(?:" + "\\s*=" + "\\s*" + ATTRIBUTEVALUE + ")"
+    private static let ATTRIBUTE: String = "(?:" + "\\s+" + ATTRIBUTENAME + ATTRIBUTEVALUESPEC + "?)"
+
+    public static let OPENTAG: String = "<${TAGNAME}${ATTRIBUTE}*" + "\\s*/?>"
+    public static let CLOSETAG: String = "</" + TAGNAME + "\\s*[>]"
+
     public static var BLOCK_PATTERNS: Array<Array<Regex>> = [
         [Regex(""), Regex("")], // not used (no type 0)
         [
@@ -601,7 +702,7 @@ class HtmlBlockParser <: AbstractBlockParser {
             Regex("") // terminated by blank line
         ],
         [
-            Regex("^(?:" + Parsing.OPENTAG + "|" + Parsing.CLOSETAG + ")\\s*$", IgnoreCase),
+            Regex("^(?:" + OPENTAG + "|" + CLOSETAG + ")\\s*$", IgnoreCase),
             Regex("") // terminated by blank line
         ]
     ]
@@ -620,10 +721,12 @@ class HtmlBlockParser <: AbstractBlockParser {
         }
     }
 
+    @Frozen
     public func getBlock(): Block {
         return block
     }
 
+    @Frozen
     public func tryContinue(state: ParserState): Option<BlockContinue> {
         if (finished) {
             return BlockContinue.none()
@@ -637,10 +740,10 @@ class HtmlBlockParser <: AbstractBlockParser {
         }
     }
 
-    public func addLine(line: String): Unit {
-        content.add(line)
+    public func addLine(line: SourceLine): Unit {
+        content.add(line.getContent())
 
-        if (closingPattern.isSome() && closingPattern.getOrThrow().matches(line)) {
+        if (closingPattern?.matches(line.getContent()) == true) {
             finished = true
         }
     }
@@ -654,23 +757,24 @@ class HtmlBlockParser <: AbstractBlockParser {
 public class HtmlBlockParserFactory <: BlockParserFactory {
     public func tryStart(state: ParserState, matchedBlockParser: MatchedBlockParser): Option<BlockStart> {
         var nextNonSpace: Int64 = state.getNextNonSpaceIndex()
-        var line = state.getLine()
+        var line = state.getLine().getContent()
 
         if (state.getIndent() < 4 && line[nextNonSpace] == b'<') {
             for (blockType in 1..8) {
                 // Type 7 can not interrupt a paragraph
-                if (blockType == 7 && matchedBlockParser.getMatchedBlockParser().getBlock() is Paragraph) {
+                if (blockType == 7 && (matchedBlockParser.getMatchedBlockParser().getBlock() is Paragraph ||
+                    state.getActiveBlockParser().canHaveLazyContinuationLines())) {
                     continue
                 }
                 var opener: Regex = HtmlBlockParser.BLOCK_PATTERNS[blockType][0]
                 var closer: Regex = HtmlBlockParser.BLOCK_PATTERNS[blockType][1]
                 var matches: Bool = opener.matches(line[nextNonSpace..line.size])
                 if (matches) {
-                    return BlockStart.of4Cj(HtmlBlockParser(closer)).atIndex(state.getIndex())
+                    return BlockStart.of(HtmlBlockParser(closer)).atIndex(state.getIndex())
                 }
             }
         }
-        return BlockStart.none();
+        return BlockStart.none()
     }
 }
 
@@ -678,10 +782,12 @@ class IndentedCodeBlockParser <: AbstractBlockParser {
     private var block: IndentedCodeBlock = IndentedCodeBlock()
     private var lines: ArrayList<String> = ArrayList<String>()
 
+    @Frozen
     public func getBlock(): Block {
         return block
     }
 
+    @Frozen
     public func tryContinue(state: ParserState): Option<BlockContinue> {
         if (state.getIndent() >= Parsing.CODE_BLOCK_INDENT) {
             return BlockContinue.atColumn(state.getColumn() + Parsing.CODE_BLOCK_INDENT)
@@ -692,14 +798,14 @@ class IndentedCodeBlockParser <: AbstractBlockParser {
         }
     }
 
-    public func addLine(line: String): Unit {
-        lines.add(line)
+    public func addLine(line: SourceLine): Unit {
+        lines.add(line.getContent())
     }
 
     public func closeBlock(): Unit {
         var lastNonBlank: Int64 = lines.size - 1
         while (lastNonBlank >= 0) {
-            if (!Parsing.isBlank(lines[lastNonBlank])) {
+            if (!Characters.isBlank(lines[lastNonBlank])) {
                 break
             }
             lastNonBlank--
@@ -717,17 +823,19 @@ class IndentedCodeBlockParser <: AbstractBlockParser {
 }
 
 public class IndentedCodeBlockParserFactory <: BlockParserFactory {
+    @Frozen
     public func tryStart(state: ParserState, _: MatchedBlockParser): Option<BlockStart> {
         // An indented code block cannot interrupt a paragraph.
         if (state.getIndent() >= Parsing.CODE_BLOCK_INDENT && !state.isBlank() &&
             !(state.getActiveBlockParser().getBlock() is Paragraph)) {
-            return BlockStart.of4Cj(IndentedCodeBlockParser()).atColumn(state.getColumn() + Parsing.CODE_BLOCK_INDENT)
+            return BlockStart.of(IndentedCodeBlockParser()).atColumn(state.getColumn() + Parsing.CODE_BLOCK_INDENT)
         } else {
             return BlockStart.none()
         }
     }
 }
 
+@Derive[ToString, Equatable]
 public enum State {
     // Looking for the start of a definition, i.e. `[`
     | START_DEFINITION
@@ -750,47 +858,61 @@ public enum State {
 public class LinkReferenceDefinitionParser {
     private var state: State = State.START_DEFINITION
 
-    private var paragraph: StringBuilder = StringBuilder(STRINGBUILDER_CAPACITY)
+    private var paragraphLines: ArrayList<SourceLine> = ArrayList()
     private var definitions: ArrayList<LinkReferenceDefinition> = ArrayList<LinkReferenceDefinition>()
+    private let sourceSpans: ArrayList<SourceSpan> = ArrayList()
 
-    private var label: StringBuilder = StringBuilder()
-    private var normalizedLabel: String = ""
+    private var label: ?StringBuilder = None
     private var destination: String = ""
-    private var titleDelimiter: Rune = NULL_CHAR
-    private var title: StringBuilder = StringBuilder()
+    private var titleDelimiter: Byte = 0
+    private var title: ?StringBuilder = None
     private var referenceValid: Bool = false
 
-    public func parse(line: String): Unit {
-        if (paragraph.size != 0) {
-            paragraph.append("\n")
+    public func parse(line: SourceLine): Unit {
+        paragraphLines.add(line)
+        if (state == State.PARAGRAPH) {
+            // We're in a paragraph now. Link reference definitions can only appear at the beginning, so once
+            // we're in a paragraph, there's no going back.
+            return
         }
-        paragraph.append(line)
-
-        var i: Int64 = 0
-        while (i < line.size) {
+        let scanner: Scanner = Scanner.of(SourceLines.of(line))
+        var success = false
+        while (scanner.hasNext()) {
             match (state) {
-                case PARAGRAPH =>
-                    // We're in a paragraph now. Link reference definitions can only appear at the beginning, so once
-                    // we're in a paragraph, there's no going back.
-                    return
-                case START_DEFINITION => i = startDefinition(line, i)
-                case LABEL => i = labelFunc(line, i)
-                case DESTINATION => i = destinationFunc(line, i)
-                case START_TITLE => i = startTitle(line, i)
-                case TITLE => i = titleFunc(line, i)
+                case START_DEFINITION => success = startDefinition(scanner)
+                case LABEL => success = labelFunc(scanner)
+                case DESTINATION => success = destinationFunc(scanner)
+                case START_TITLE => success = startTitle(scanner)
+                case TITLE => success = titleFunc(scanner)
+                case _ => throw IllegalStateException("Unknown parsing state: ${state.toString()}")
             }
-            // -1 is returned if parsing failed, which means we fall back to treating text as a paragraph.
-            if (i == -1) {
+            // Parsing failed, which means we fall back to treating text as a paragraph.
+            if (!success) {
                 state = State.PARAGRAPH
+                // If parsing of the title part failed, we still have a valid reference that we can add, and we need to
+                // do it before the source span for this line is added.
+                finishReference()
                 return
             }
         }
     }
 
-    func getParagraphContent(): StringBuilder {
-        return paragraph
+    public func addSourceSpan(sourceSpan: SourceSpan): Unit {
+        sourceSpans.add(sourceSpan)
+    }
+    /**
+     * @return the lines that are normal paragraph content, without newlines
+     */
+    func getParagraphLines(): SourceLines {
+        return SourceLines.of(paragraphLines)
     }
 
+    @Frozen
+    func getParagraphSourceSpans(): ArrayList<SourceSpan> {
+        return sourceSpans
+    }
+
+    @Frozen
     func getDefinitions(): ArrayList<LinkReferenceDefinition> {
         finishReference()
         return definitions
@@ -800,144 +922,158 @@ public class LinkReferenceDefinitionParser {
         return state
     }
 
-    private func startDefinition(line: String, i: Int64): Int64 {
-        var index = Parsing.skipSpaceTab(line, i, line.size)
-        if (index >= line.size || line[index] != b'[') {
-            return -1
+    func removeLines(lines: Int): ArrayList<SourceSpan> {
+        var removedSpans = sourceSpans[max(sourceSpans.size - lines, 0)..sourceSpans.size]
+        removeLast(lines, paragraphLines)
+        removeLast(lines, sourceSpans)
+        return removedSpans
+    }
+
+    private func startDefinition(scanner: Scanner): Bool {
+        // Finish any outstanding references now. We don't do this earlier because we need addSourceSpan to have been
+        // called before we do it.
+        finishReference()
+
+        scanner.whitespace()
+        if (!scanner.next('[')) {
+            return false
         }
 
         state = State.LABEL
+        label = StringBuilder()
 
-        var labelStart: Int64 = index + 1
-        if (labelStart >= line.size) {
-            label.append('\n')
+        if (!scanner.hasNext()) {
+            label?.append('\n')
         }
-
-        return labelStart
+        return true
     }
 
-    private func labelFunc(line: String, i: Int64): Int64 {
-        var afterLabel: Int64 = LinkScanner.scanLinkLabelContent(line, i)
-        if (afterLabel == -1) {
-            return -1
+    private func labelFunc(scanner: Scanner): Bool {
+        let start: SourcePosition = scanner.position()
+        if (!LinkScanner.scanLinkLabelContent(scanner)) {
+            return false
         }
 
-        label.append(line[i..afterLabel])
+        label?.append(scanner.getSource(start, scanner.position()).getContent())
 
-        if (afterLabel >= line.size) {
+        if (!scanner.hasNext()) {
             // label might continue on next line
-            label.append('\n')
-            return afterLabel
-        } else if (line[afterLabel] == b']') {
-            var colon: Int64 = afterLabel + 1
+            label?.append('\n')
+            return true
+        } else if (scanner.next(']')) {
             // end of label
-            if (colon >= line.size || line[colon] != b':') {
-                return -1
+            if (!scanner.next(':')) {
+                return false
             }
 
             // spec: A link label can have at most 999 characters inside the square brackets.
-            if (label.size > 999) {
-                return -1
+            if ((label?.size ?? 0) > 999) {
+                return false
             }
-            var normalizedLabel: String = Escaping.normalizeLabelContent(label.toString())
+
+            let normalizedLabel: String = Escaping.normalizeLabelContent(label?.toString() ?? "")
             if (normalizedLabel.isEmpty()) {
-                return -1
+                return false
             }
-            this.normalizedLabel = normalizedLabel
+
             state = State.DESTINATION
 
-            return Parsing.skipSpaceTab(line, colon + 1, line.size)
+            scanner.whitespace()
+            return true
         } else {
-            return -1
+            return false
         }
     }
 
-    private func destinationFunc(line: String, i: Int64): Int64 {
-        var index = Parsing.skipSpaceTab(line, i, line.size)
-        var afterDestination: Int64 = LinkScanner.scanLinkDestination(line, i)
-        if (afterDestination == -1) {
-            return -1
+    private func destinationFunc(scanner: Scanner): Bool {
+        scanner.whitespace()
+        let start: SourcePosition = scanner.position()
+        if (!LinkScanner.scanLinkDestination(scanner)) {
+            return false
         }
 
-        if (line[index] == b'<') {
-            destination = line[i + 1..afterDestination - 1]
+        let rawDestination: String = scanner.getSource(start, scanner.position()).getContent()
+        destination = if (rawDestination.startsWith("<")) {
+            rawDestination[1..rawDestination.size - 1]
         } else {
-            destination = line[i..afterDestination]
+            rawDestination
         }
 
-        var afterSpace: Int64 = Parsing.skipSpaceTab(line, afterDestination, line.size)
-        if (afterSpace >= line.size) {
+        let whitespace: Int = scanner.whitespace()
+        if (!scanner.hasNext()) {
             // Destination was at end of line, so this is a valid reference for sure (and maybe a title).
             // If not at end of line, wait for title to be valid first.
             referenceValid = true
-            paragraph.reset(capacity: STRINGBUILDER_CAPACITY)
-        } else if (afterSpace == afterDestination) {
+            paragraphLines.clear()
+        } else if (whitespace == 0) {
             // spec: The title must be separated from the link destination by whitespace
-            return -1
+            return false
         }
 
         state = State.START_TITLE
-        return afterSpace
+        return true
     }
 
-    private func startTitle(line: String, i: Int64): Int64 {
-        var index = Parsing.skipSpaceTab(line, i, line.size)
-        if (index >= line.size) {
+    private func startTitle(scanner: Scanner): Bool {
+        scanner.whitespace()
+        if (!scanner.hasNext()) {
             state = State.START_DEFINITION
-            return index
+            return true
         }
 
-        titleDelimiter = r'\0'
-        var c: Byte = line[i]
-        if (c == b'"' || c == b'\'') {
-            titleDelimiter = Rune(c)
-        } else if (c == b'(') {
-            titleDelimiter = ')'
+        titleDelimiter = 0
+        let c: Byte = scanner.peek()
+        match (c) {
+            case b'"' | b'\'' => titleDelimiter = c
+            case b'(' => titleDelimiter = b')'
+            case _ => ()
         }
 
-        if (titleDelimiter != r'\0') {
+        if (titleDelimiter != 0) {
             state = State.TITLE
             title = StringBuilder()
-            index++
-            if (index == line.size) {
-                title.append('\n')
+            scanner.next()
+            if (!scanner.hasNext()) {
+                title?.append('\n')
             }
         } else {
-            finishReference()
             // There might be another reference instead, try that for the same character.
             state = State.START_DEFINITION
         }
-        return index
+        return true
     }
 
-    private func titleFunc(line: String, i: Int64): Int64 {
-        var afterTitle: Int64 = LinkScanner.scanLinkTitleContent(line, i, UInt8(UInt32(titleDelimiter)))
-        if (afterTitle == -1) {
-            // Invalid title, stop
-            return -1
+    private func titleFunc(scanner: Scanner): Bool {
+        let start: SourcePosition = scanner.position()
+        if (!LinkScanner.scanLinkTitleContent(scanner, titleDelimiter)) {
+            // Invalid title, stop. Title collected so far must not be used.
+            title = None
+            return false
         }
 
-        title.append(line[i..afterTitle])
+        title?.append(scanner.getSource(start, scanner.position()).getContent())
 
-        if (afterTitle >= line.size) {
-            // Title still going, continue on next line
-            title.append('\n')
-            return afterTitle
+        if (!scanner.hasNext()) {
+            // Title ran until the end of line, so continue on next line (until we find the delimiter)
+            title?.append('\n')
+            return true
         }
 
-        var afterTitleDelimiter: Int64 = afterTitle + 1
-        var afterSpace: Int64 = Parsing.skipSpaceTab(line, afterTitleDelimiter, line.size)
-        if (afterSpace != line.size) {
+        // Skip delimiter character
+        scanner.next()
+        scanner.whitespace()
+        if (scanner.hasNext()) {
             // spec: No further non-whitespace characters may occur on the line.
-            return -1
+            // Title collected so far must not be used.
+            title = None
+            return false
         }
         referenceValid = true
-        finishReference()
-        paragraph.reset(capacity: STRINGBUILDER_CAPACITY)
+        paragraphLines.clear()
 
         // See if there's another definition.
         state = State.START_DEFINITION
-        return afterSpace
+        return true
     }
 
     private func finishReference(): Unit {
@@ -946,18 +1082,28 @@ public class LinkReferenceDefinitionParser {
         }
 
         var d: String = Escaping.unescapeString(destination)
-        let t: ?String = if (title.size == 0) {
-            None
-        } else {
+        let t: ?String = if (let Some(title) <- title) {
             Escaping.unescapeString(title.toString())
+        } else {
+            None
         }
-        definitions.add(LinkReferenceDefinition(normalizedLabel, d, t))
+        let definition = LinkReferenceDefinition(label().toString(), d, t)
+        definition.setSourceSpans(sourceSpans)
+        sourceSpans.clear()
+        definitions.add(definition)
 
-        label.reset()
+        label = None
         referenceValid = false
-        normalizedLabel = ""
         destination = ""
-        title.reset()
+        title = None
+    }
+
+    private static func removeLast<T>(n: Int, list: ArrayList<T>): Unit {
+        if (n >= list.size) {
+            list.clear()
+        } else {
+            list.remove(list.size - n..list.size)
+        }
     }
 }
 
@@ -991,10 +1137,12 @@ class ListBlockParser <: AbstractBlockParser {
         }
     }
 
+    @Frozen
     public func getBlock(): Block {
         return block
     }
 
+    @Frozen
     public func tryContinue(state: ParserState): Option<BlockContinue> {
         if (state.isBlank()) {
             hadBlankLine = true
@@ -1092,13 +1240,14 @@ class ListBlockParser <: AbstractBlockParser {
                     if (digits > 9) {
                         return None
                     }
-                case '.' | ')' => if (digits >= 1 && isSpaceTabOrEnd(line, i + 1)) {
-                    var number: String = line[index..i]
-                    var orderedList: OrderedList = OrderedList(Int64.parse(number), Rune(c))
-                    return ListMarkerData(orderedList, i + 1)
-                } else {
-                    return None
-                }
+                case '.' | ')' =>
+                    if (digits >= 1 && isSpaceTabOrEnd(line, i + 1)) {
+                        var number: String = line[index..i]
+                        var orderedList: OrderedList = OrderedList(Int64.parse(number), Rune(c))
+                        return ListMarkerData(orderedList, i + 1)
+                    } else {
+                        return None
+                    }
                 case _ => return None
             }
         }
@@ -1128,7 +1277,9 @@ class ListBlockParser <: AbstractBlockParser {
                 (b as BulletList).getOrThrow().getBulletMarker()
             )
         } else if (a is OrderedList && b is OrderedList) {
-            return equals((a as OrderedList).getOrThrow().getDelimiter(), (b as OrderedList).getOrThrow().getDelimiter()
+            return equals(
+                (a as OrderedList).getOrThrow().getDelimiter(),
+                (b as OrderedList).getOrThrow().getDelimiter()
             )
         }
         return false
@@ -1144,6 +1295,7 @@ class ListBlockParser <: AbstractBlockParser {
 }
 
 public class ListBlockParserFactory <: BlockParserFactory {
+    @Frozen
     public func tryStart(state: ParserState, matchedBlockParser: MatchedBlockParser): Option<BlockStart> {
         var matched: AbstractBlockParser = matchedBlockParser.getMatchedBlockParser()
 
@@ -1152,28 +1304,27 @@ public class ListBlockParserFactory <: BlockParserFactory {
         }
         var markerIndex: Int64 = state.getNextNonSpaceIndex()
         var markerColumn: Int64 = state.getColumn() + state.getIndent()
-        var inParagraph: Bool = matchedBlockParser.getParagraphContent().isSome()
-        var listData: ?ListData = ListBlockParser.parseList(state.getLine(), markerIndex, markerColumn, inParagraph)
-        if (listData.isNone()) {
-            return BlockStart.none()
-        }
+        var inParagraph: Bool = !matchedBlockParser.getParagraphLines().isEmpty()
+        var listData: ListData = ListBlockParser.parseList(state.getLine().getContent(), markerIndex, markerColumn,
+            inParagraph) ?? return BlockStart.none()
 
-        var newColumn: Int64 = listData.getOrThrow().contentColumn
+        var newColumn: Int64 = listData.contentColumn
         var listItemParser: ListItemParser = ListItemParser(newColumn - state.getColumn())
 
         // prepend the list block if needed
-        if (!(matched is ListBlockParser) ||
-            !(ListBlockParser.listsMatch((matched.getBlock() as ListBlock).getOrThrow(), listData.getOrThrow().listBlock
+        if (!(matched is ListBlockParser) || !(ListBlockParser.listsMatch(
+            (matched.getBlock() as ListBlock).getOrThrow(),
+            listData.listBlock
         ))) {
-            var listBlockParser: ListBlockParser = ListBlockParser(listData.getOrThrow().listBlock)
+            var listBlockParser: ListBlockParser = ListBlockParser(listData.listBlock)
             // We start out with assuming a list is tight. If we find a blank line, we set it to loose later.
-            listData.getOrThrow().listBlock.setTight(true)
+            listData.listBlock.setTight(true)
 
             var listBlock: Array<AbstractBlockParser> = [listBlockParser, listItemParser]
-            return BlockStart.of4Cj(listBlock).atColumn(newColumn)
+            return BlockStart.of(listBlock).atColumn(newColumn)
         } else {
             var listBlock: Array<AbstractBlockParser> = [listItemParser]
-            return BlockStart.of4Cj(listBlock).atColumn(newColumn)
+            return BlockStart.of(listBlock).atColumn(newColumn)
         }
     }
 }
@@ -1232,10 +1383,12 @@ class ListItemParser <: AbstractBlockParser {
         return true
     }
 
+    @Frozen
     public func getBlock(): Block {
         return block
     }
 
+    @Frozen
     public func tryContinue(state: ParserState): Option<BlockContinue> {
         if (state.isBlank()) {
             if (block.getFirstChild().isNone()) {
@@ -1265,10 +1418,12 @@ class ParagraphParser <: AbstractBlockParser {
         return true
     }
 
+    @Frozen
     public func getBlock(): Block {
         return block
     }
 
+    @Frozen
     public func tryContinue(state: ParserState): Option<BlockContinue> {
         if (!state.isBlank()) {
             return BlockContinue.atIndex(state.getIndex())
@@ -1277,40 +1432,57 @@ class ParagraphParser <: AbstractBlockParser {
         }
     }
 
-    public func addLine(line: String): Unit {
+    public func addLine(line: SourceLine): Unit {
         linkReferenceDefinitionParser.parse(line)
     }
 
-    public func closeBlock(): Unit {
-        if (linkReferenceDefinitionParser.getParagraphContent().size == 0) {
-            block.unlink()
-        }
-    }
-
-    public func parseInlines(inlineParser: InlineParser): Unit {
-        var content: String = linkReferenceDefinitionParser.getParagraphContent().toString()
-        if (content.size > 0) {
-            inlineParser.parse(content, block)
-        }
-    }
-
-    public func getContentString(): StringBuilder {
-        return linkReferenceDefinitionParser.getParagraphContent()
+    public func addSourceSpan(sourceSpan: SourceSpan): Unit {
+        // Some source spans might belong to link reference definitions, others to the paragraph.
+        // The parser will handle that.
+        linkReferenceDefinitionParser.addSourceSpan(sourceSpan)
     }
 
     @Frozen
     public func getDefinitions(): ArrayList<LinkReferenceDefinition> {
-        return linkReferenceDefinitionParser.getDefinitions()
+        linkReferenceDefinitionParser.getDefinitions()
+    }
+
+    public func closeBlock(): Unit {
+        for (def in linkReferenceDefinitionParser.getDefinitions()) {
+            block.insertBefore(def)
+        }
+
+        if (linkReferenceDefinitionParser.getParagraphLines().isEmpty()) {
+            block.unlink()
+        } else {
+            block.setSourceSpans(linkReferenceDefinitionParser.getParagraphSourceSpans())
+        }
+    }
+
+    public func parseInlines(inlineParser: InlineParser): Unit {
+        let lines = linkReferenceDefinitionParser.getParagraphLines()
+        if (!lines.isEmpty()) {
+            inlineParser.parse(lines, block)
+        }
+    }
+
+    public func getParagraphLines(): SourceLines {
+        return linkReferenceDefinitionParser.getParagraphLines()
+    }
+    func removeLines(lines: Int): ArrayList<SourceSpan> {
+        return linkReferenceDefinitionParser.removeLines(lines)
     }
 }
 
 class ThematicBreakParser <: AbstractBlockParser {
     private var block: ThematicBreak = ThematicBreak()
 
+    @Frozen
     public func getBlock(): Block {
         return block
     }
 
+    @Frozen
     public func tryContinue(_: ParserState): Option<BlockContinue> {
         // a horizontal rule can never container > 1 line, so fail to match
         return BlockContinue.none()
@@ -1341,14 +1513,15 @@ class ThematicBreakParser <: AbstractBlockParser {
 }
 
 public class ThematicBreakParserFactory <: BlockParserFactory {
+    @Frozen
     public func tryStart(state: ParserState, _: MatchedBlockParser): Option<BlockStart> {
         if (state.getIndent() >= 4) {
             return BlockStart.none()
         }
         var nextNonSpace: Int64 = state.getNextNonSpaceIndex()
-        var line = state.getLine()
+        var line = state.getLine().getContent()
         if (ThematicBreakParser.isThematicBreak(line, nextNonSpace)) {
-            return BlockStart.of4Cj(ThematicBreakParser()).atIndex(line.size)
+            return BlockStart.of(ThematicBreakParser()).atIndex(line.size)
         } else {
             return BlockStart.none()
         }

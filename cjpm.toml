@@ -16,7 +16,7 @@
 [dependencies]
 
 [package]
-  cjc-version = "1.0.0"
+  cjc-version = "1.0.5"
   compile-option = ""
   description = ""
   link-option = ""

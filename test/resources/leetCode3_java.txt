@@ -1,0 +1,40 @@
+<h2>解题思路：\n\n根据题目示例 <code>matrix = [[1,2,3],[4,5,6],[7,8,9]]</code> 的对应输出 <code>[1,2,3,6,9,8,7,4,5]</code> 可以发现，顺时针打印矩阵的顺序是 <strong>“从左向右、从上向下、从右向左、从下向上”</strong> 循环。\n\n因此，考虑设定矩阵的 “左、上、右、下” 四个边界，模拟以上矩阵遍历顺序。\n</h2>
+<p><img src="https://pic.leetcode-cn.com/7605d807782923e4ad3c7995dc2485f538f202ac326bb330fe997f449123a548-Picture1.png" alt="Picture1.png" />{:width=400}\n</p>
+<h3>算法流程：\n\n1. <strong>空值处理：</strong> 当 <code>matrix</code> 为空时，直接返回空列表 <code>[]</code> 即可。\n2. <strong>初始化：</strong> 矩阵 左、右、上、下 四个边界 <code>l</code> ,  <code>r</code> ,  <code>t</code> ,  <code>b</code> ，用于打印的结果列表 <code>res</code> 。\n3. <strong>循环打印：</strong> “从左向右、从上向下、从右向左、从下向上” 四个方向循环打印。\n   1. 根据边界打印，即将元素按顺序添加至列表 <code>res</code> 尾部。\n   2. 边界向内收缩 1 （代表已被打印）。\n   3. 判断边界是否相遇（是否打印完毕），若打印完毕则跳出。\n4. <strong>返回值：</strong> 返回 <code>res</code> 即可。\n</h3>
+<p>| 打印方向 | 1. 根据边界打印        | 2. 边界向内收缩   | 3. 是否打印完毕 |\n| -------- | ---------------------- | ----------------- | --------------- |\n| 从左向右 | 左边界<code>l</code> ，右边界 <code>r</code> | 上边界 <code>t</code> 加 $1$ | 是否 <code>t &gt; b</code>    |\n| 从上向下 | 上边界 <code>t</code> ，下边界<code>b</code> | 右边界 <code>r</code> 减 $1$ | 是否 <code>l &gt; r</code>    |\n| 从右向左 | 右边界 <code>r</code> ，左边界<code>l</code> | 下边界 <code>b</code> 减 $1$ | 是否 <code>t &gt; b</code>    |\n| 从下向上 | 下边界 <code>b</code> ，上边界<code>t</code> | 左边界 <code>l</code> 加 $1$ | 是否 <code>l &gt; r</code>    |\n
+&lt;<img src="https://pic.leetcode-cn.com/1ad0fe88d15dc87643435eb7a17b368191725a44da4596722977e5798ace5b62-Picture2.png" alt="Picture2.png" />,<img src="https://pic.leetcode-cn.com/193444cbca5529fcd1bafec33ef576fe1309690be2c0110de05868f4415a8723-Picture3.png" alt="Picture3.png" />,<img src="https://pic.leetcode-cn.com/bca38a428306cb2aacc00513821e74150947ba241d9b7199bcad6c7e843a0105-Picture4.png" alt="Picture4.png" />,<img src="https://pic.leetcode-cn.com/e5de1e07957417f13d9fae22e6fb18dd5331b50258f0297f00ba57d25651df4a-Picture5.png" alt="Picture5.png" />,<img src="https://pic.leetcode-cn.com/2fde8dcd1481e390532995c02d3575ec9675a27390513c1540f40431dad7997a-Picture6.png" alt="Picture6.png" />,<img src="https://pic.leetcode-cn.com/1950d4c8ab6b09b62b7d5900ece4d8d4be882abebd2417a3030d172aedbc304e-Picture7.png" alt="Picture7.png" />&gt;\n</p>
+<h2>代码：\n\nJava, C++ 代码利用了 <code>++</code> 操作的便利性，详情可见 <a href="https://www.jianshu.com/p/b62eac216499">++i 和 i++ 的区别</a> 。\n</h2>
+<ul>
+<li><code>res[x++]</code> 等价于先给 <code>res[x]</code> 赋值，再给 <code>x</code> 自增 $1$ 。\n- <code>++t &gt; b</code> 等价于先给 <code>t</code> 自增 $1$ ，再判断 <code>t &gt; b</code> 逻辑表达式。\n</li>
+</ul>
+<blockquote>
+<p>TIPS： 请注意区分数字 <code>1</code> 和字母 <code>l</code> 。\n</p>
+</blockquote>
+<pre><code class="language-Python">            t += 1
+            if t &gt; b: break
+            for i in range(t, b + 1): res.append(matrix[i][r]) # top to bottom
+            r -= 1
+            if l &gt; r: break
+            for i in range(r, l - 1, -1): res.append(matrix[b][i]) # right to left
+            b -= 1
+            if t &gt; b: break
+            for i in range(b, t - 1, -1): res.append(matrix[i][l]) # bottom to top
+            l += 1
+            if l &gt; r: break
+        return res
+```\n
+```Java []\nclass Solution {\n    public List&lt;Integer&gt; spiralOrder(int[][] matrix) {\n        if (matrix.length == 0)\n            return new ArrayList&lt;Integer&gt;();\n        int l = 0, r = matrix[0].length - 1, t = 0, b = matrix.length - 1, x = 0;\n        Integer[] res = new Integer[(r + 1) * (b + 1)];\n        while (true) {\n            for (int i = l; i &lt;= r; i++) res[x++] = matrix[t][i]; // left to right
+            if (++t &gt; b) break;\n            for (int i = t; i &lt;= b; i++) res[x++] = matrix[i][r]; // top to bottom
+            if (l &gt; --r) break;\n            for (int i = r; i &gt;= l; i--) res[x++] = matrix[b][i]; // right to left
+            if (t &gt; --b) break;\n            for (int i = b; i &gt;= t; i--) res[x++] = matrix[i][l]; // bottom to top
+            if (++l &gt; r) break;\n        }\n        return Arrays.asList(res);\n    }\n}\n```\n
+```C++ []\nclass Solution {\npublic:\n    vector&lt;int&gt; spiralOrder(vector&lt;vector&lt;int&gt;&gt;&amp; matrix) {\n        if (matrix.empty()) return {};\n        int l = 0, r = matrix[0].size() - 1, t = 0, b = matrix.size() - 1;\n        vector&lt;int&gt; res;\n        while (true) {\n            for (int i = l; i &lt;= r; i++) res.push_back(matrix[t][i]); // left to right
+            if (++t &gt; b) break;\n            for (int i = t; i &lt;= b; i++) res.push_back(matrix[i][r]); // top to bottom
+            if (l &gt; --r) break;\n            for (int i = r; i &gt;= l; i--) res.push_back(matrix[b][i]); // right to left
+            if (t &gt; --b) break;\n            for (int i = b; i &gt;= t; i--) res.push_back(matrix[i][l]); // bottom to top
+            if (++l &gt; r) break;\n        }\n        return res;\n    }\n};\n```\n
+### 复杂度分析：\n
+- **时间复杂度 $O(MN)$ ：** $M, N$ 分别为矩阵行数和列数。\n- **空间复杂度 $O(1)$ ：** 四个边界 `l` , `r` , `t` , `b` 使用常数大小的额外空间。\n
+---\n
+[![link](https://pic.leetcode.cn/1692032516-LSqzdC-760_100_3.png)](https://leetcode.cn/studyplan/selected-coding-interview/)\n\n本学习计划配有代码仓，内含测试样例与数据结构封装，便于本地调试。可前往我的[个人主页](https://leetcode.cn/u/jyd/)获取。\n
+</code></pre>

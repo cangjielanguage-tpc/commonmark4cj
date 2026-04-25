@@ -23,34 +23,38 @@ public abstract class EmphasisDelimiterProcessor <: DelimiterProcessor {
         return 1
     }
 
-    public override func getDelimiterUse(opener: DelimiterRun, closer: DelimiterRun): Int64 {
+    public override func process(openingRun: DelimiterRun, closingRun: DelimiterRun): Int {
         // "multiple of 3" rule for internal delimiter runs
-        if ((opener.canClose() || closer.canOpen()) && closer.getOriginalLength() % 3 != 0 &&
-            (opener.getOriginalLength() + closer.getOriginalLength()) % 3 == 0) {
+        if ((openingRun.canClose() || closingRun.canOpen()) && closingRun.getOriginalLength() % 3 != 0 &&
+            (openingRun.getOriginalLength() + closingRun.getOriginalLength()) % 3 == 0) {
             return 0
         }
+
+        var usedDelimiters = 0
         // calculate actual number of delimiters used from this closer
-        if (opener.getLength() >= 2 && closer.getLength() >= 2) {
-            return 2
+        let emphasis: Node = if (openingRun.getLength() >= 2 && closingRun.getLength() >= 2) {
+            usedDelimiters = 2
+            StrongEmphasis(delimiterChar.toString() * 2)
         } else {
-            return 1
-        }
-    }
-
-    public override func process(opener: Text, closer: Text, delimiterUse: Int64): Unit {
-        let singleDelimiter: String = String(getOpeningCharacter())
-        let emphasis: Node = if (delimiterUse == 1) {
-            Emphasis(singleDelimiter)
-        } else {
-            StrongEmphasis(singleDelimiter + singleDelimiter)
-        }
-        var tmp: ?Node = opener.getNext()
-        while (let Some(v) <- tmp && v != closer) {
-            tmp = v.getNext()
-            emphasis.appendChild(v)
+            usedDelimiters = 1
+            Emphasis(delimiterChar.toString())
         }
 
+        let sourceSpans = SourceSpans.empty()
+        sourceSpans.addAllFromTexts(openingRun.getOpeners(usedDelimiters))
+
+        let opener = openingRun.getOpener()
+        for (node in Nodes.between(opener, closingRun.getCloser())) {
+            emphasis.appendChild(node)
+            sourceSpans.addAll(node.getSourceSpans())
+        }
+
+        sourceSpans.addAllFromTexts(closingRun.getClosers(usedDelimiters))
+
+        emphasis.setSourceSpans(sourceSpans.getSourceSpans())
         opener.insertAfter(emphasis)
+
+        return usedDelimiters
     }
 }
 

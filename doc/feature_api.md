@@ -1,8 +1,22 @@
-## commonMark4cj 库
+## commonmark4cj 库
+
+```mermaid
+flowchart LR
+    md[/MarkdownText/] -->parser(Parser解析)
+    parser --> node[Node树]
+    parser <--> BlockParser[[自定义段落解析]]
+    parser <--> DelimiterProcessor[[自定义行内符号解析]]
+    parser <--> InlineContentParser[[自定义行内解析]]
+    parser <--> LinkProcessor[[自定义行内解析]]
+    parser <--> PostProcessor[[后处理]]
+    node --> renderer(Renderer渲染)
+    renderer <--> visitor[[Visitor遍历]]
+    renderer --> res[/渲染结果/]
+```
 
 ### 介绍
 
-
+根据CommonMark规范（以及一些扩展）解析和呈现Markdown文本。
 
 ### 1 Node
 
@@ -14,7 +28,7 @@
 
 可靠性：NA
 
-#### 1.1 通用Node
+#### 1.1 普通Node 通常为行内节点
 
 ##### 1.1.1 主要接口
 
@@ -250,58 +264,6 @@ public class SoftLineBreak <: Node {
 }
 
 /**
- * LinkReferenceDefinition节点
- */
-public class LinkReferenceDefinition <: Node {
-	/*
-     * 初始化
-     */
-    public init()
-	/*
-     * 添加操作行为
-     * 参数 String - 链接引用的标签
-     * 参数 String - 目标地址
-     * 参数 String - 标题
-     */
-    public init(label: String, destination: String, title: String)
-	/*
-     * 获取链接引用的标签
-     * 返回值 ?String - 链接引用的标签
-     */
-    public func getLabel(): ?String
-	/*
-     * 设置链接引用的标签
-     * 参数 String - 链接引用的标签
-     */
-    public func setLabel(label: String): Unit
-    /*
-     * 获取目标地址
-     * 返回值 String - 目标地址
-     */
-    public func getDestination(): String
-	/*
-     * 设置目标地址
-     * 参数 String - 目标地址
-     */
-    public func setDestination(destination: String): Unit
-    /*
-     * 获取标题
-     * 返回值 ?String - 标题
-     */
-    public func getTitle(): ?String
-	/*
-     * 设置标题
-     * 参数 String - 标题
-     */
-    public func setTitle(title: String): Unit
-	/*
-     * 添加操作行为
-     * 参数 Visitor - 具体的操作行为
-     */
-    public override func accept(visitor: Visitor): Unit
-}
-
-/**
  * Link节点
  */
 public class Link <: Node {
@@ -416,30 +378,6 @@ public class Emphasis <: Node & Delimited {
      */
     public override func accept(visitor: Visitor): Unit
 }
-```
-
-##### 1.1.2 示例
-
-```cangjie
-    import commonmark4cj.commonmark.*
-
-    @TestCase
-    func linkReferenceDefinitionTest(): Unit {
-        var text: LinkReferenceDefinition = LinkReferenceDefinition()
-        assertEquals(None, text.getLabel())
-        text = LinkReferenceDefinition("foo", "/url", "title")
-        assertEquals("foo", text.getLabel())
-        assertEquals("/url", text.getDestination())
-        assertEquals("title", text.getTitle())
-
-        text.setLabel("bar")
-        text.setDestination("/path")
-        text.setTitle("titles")
-
-        assertEquals("bar", text.getLabel())
-        assertEquals("/path", text.getDestination())
-        assertEquals("titles", text.getTitle())
-    }
 ```
 
 #### 1.2 Block系列节点
@@ -696,6 +634,58 @@ public class OrderedList <: ListBlock {
      */
     public func setDelimiter(delimiter: Rune): Unit
 }
+
+/**
+ * LinkReferenceDefinition节点
+ */
+public class LinkReferenceDefinition <: Block {
+	/*
+     * 初始化
+     */
+    public init()
+	/*
+     * 添加操作行为
+     * 参数 String - 链接引用的标签
+     * 参数 String - 目标地址
+     * 参数 String - 标题
+     */
+    public init(label: String, destination: String, title: String)
+	/*
+     * 获取链接引用的标签
+     * 返回值 ?String - 链接引用的标签
+     */
+    public func getLabel(): ?String
+	/*
+     * 设置链接引用的标签
+     * 参数 String - 链接引用的标签
+     */
+    public func setLabel(label: String): Unit
+    /*
+     * 获取目标地址
+     * 返回值 String - 目标地址
+     */
+    public func getDestination(): String
+	/*
+     * 设置目标地址
+     * 参数 String - 目标地址
+     */
+    public func setDestination(destination: String): Unit
+    /*
+     * 获取标题
+     * 返回值 ?String - 标题
+     */
+    public func getTitle(): ?String
+	/*
+     * 设置标题
+     * 参数 String - 标题
+     */
+    public func setTitle(title: String): Unit
+	/*
+     * 添加操作行为
+     * 参数 Visitor - 具体的操作行为
+     */
+    public override func accept(visitor: Visitor): Unit
+}
 ```
 
 ##### 1.2.2 示例
@@ -736,7 +726,7 @@ public class OrderedList <: ListBlock {
 
 #### 
 
-#### 1.3 Visitor系列节点
+#### 1.3 Visitor接口
 
 ##### 1.3.1 主要接口
 
@@ -936,8 +926,7 @@ public abstract class AbstractVisitor <: Visitor {
 
 前置条件：NA 
 
-场景：markdown解析得到的节点树，不同类型节点为不同的Node子类
-
+将markdown文本解析为节点树
 约束：NA
 
 可靠性：NA
@@ -1040,6 +1029,9 @@ public interface ParserExtension <: Extension {
     func ext(parserBuilder: ParserBuilder): Unit
 }
 
+/*
+ * 后处理
+ */
 public interface PostProcessor {
 	/*
      * 解析Node
@@ -1104,9 +1096,19 @@ public interface BlockParser {
     
 	/*
      * 添加一行
-     * 参数 CharSequence - CharSequence
+     * 参数 line - 行数据
      */
-    func addLine(line: CharSequence): Unit
+    func addLine(line: SourceLine): Unit
+
+    /**      
+     * 向当前解析的块添加一个源范围。在{@link AbstractBlockParser}中的默认实现是将其添加到块中。除非您有复杂的解析需求，需要检查源位置，否则无需覆盖此方法。
+     */
+    func addSourceSpan(sourceSpan: SourceSpan): Unit
+
+    /**      
+     * 返回此解析器解析的定义。此处返回的定义稍后可通过内联解析过程中的{@link InlineParserContext#getDefinition}进行访问。
+     */
+    func getDefinitions(): ArrayList<LinkReferenceDefinition>
 
 	/*
      * 关闭块对象
@@ -1120,46 +1122,7 @@ public interface BlockParser {
     func parseInlines(inlineParser: InlineParser): Unit
 }
 
-public abstract class AbstractBlockParser <: BlockParser {
-	/*
-     * 是否可以包含其他块级元素
-     * 返回值 Bool - false
-     */
-    public open func isContainer(): Bool
-
-	/*
-     * 是否可以懒惰的换行
-     * 返回值 Bool - false
-     */
-    public open func canHaveLazyContinuationLines(): Bool
-
-	/*
-     * 是否可以包含这个Block对象
-     * 参数 Block - Block对象
-     * 返回值 Bool - false
-     */
-    public open func canContain(_: Block): Bool
-
-	/*
-     * 添加一行
-     * 参数 CharSequence - CharSequence
-     */
-    public open func addLine(_: CharSequence): Unit
-
-	/*
-     * 关闭块对象
-     */
-    public open func closeBlock(): Unit
-
-	/*
-     * 使用InlineParser解析文本
-     * 参数 InlineParser - InlineParser对象
-     */
-    public open func parseInlines(_: InlineParser): Unit
-}
-
 public open class BlockContinue {
-
 	/*
      * 清空BlockContinue对象
      * 返回值 InlineParser - Option<BlockContinue>.None
@@ -1198,8 +1161,6 @@ public interface BlockParserFactory {
     func tryStart(state: ParserState, matchedBlockParser: MatchedBlockParser): Option<BlockStart>
 }
 
-public abstract class AbstractBlockParserFactory <: BlockParserFactory {}
-
 public abstract class BlockStart {
 	/*
      * 生成一个 Option<BlockStart>.None实例
@@ -1212,7 +1173,7 @@ public abstract class BlockStart {
      * 参数 Array<AbstractBlockParser> - 解析类数组
      * 返回值 BlockStart - BlockStart实现类
      */
-    public static func of4Cj(blockParsers: Array<AbstractBlockParser>): BlockStart
+    public static func of(blockParsers: Array<AbstractBlockParser>): BlockStart
 
 	/*
      * 指定下标
@@ -1235,27 +1196,13 @@ public abstract class BlockStart {
     public func replaceActiveBlockParser(): BlockStart
 }
 
-public interface MatchedBlockParser {
-	/*
-     * 获取匹配到的解析类
-     * 返回值 AbstractBlockParser - 解析类
-     */
-    func getMatchedBlockParser(): AbstractBlockParser
-
-	/*
-     * 获取段落文本 如果匹配的是段落Node
-     * 返回值 ?String - 段落文本
-     */
-    func getParagraphContent(): ?String
-}
-
-
 public interface ParserState {
 	/*
      * 获取当前行内容
-     * 返回值 CharSequence - 内容
+     * 返回值 SourceLine - 内容
      */
-    func getLine(): CharSequence
+    func getLine(): SourceLine
+    func getNextLine(): String
     
 	/*
      * 获取下标
@@ -1294,103 +1241,189 @@ public interface ParserState {
     func getActiveBlockParser(): AbstractBlockParser
 }
 
-public class BlockQuoteParserFactory <: BlockParserFactory {
-	/*
-     * 初始化一个特定的 BlockParser 实例来解析当前的文本行
-     * 参数 ParserState - ParserState 对象
-     * 参数 MatchedBlockParser - MatchedBlockParser 对象
-     * 返回值 Option<BlockStart> - BlockStart
-     */
-    public func tryStart(state: ParserState, _: MatchedBlockParser): Option<BlockStart>
+/**
+ * 来自输入源的一组行（{@link SourceLine}）。
+ */
+public class SourceLines {
+
+    public static func empty(): SourceLines
+
+    public static func of(sourceLine: SourceLine): SourceLines
+
+    public static func of(sourceLines: ArrayList<SourceLine>): SourceLines
+
+    public func addLine(sourceLine: SourceLine): Unit
+
+    public func getLines(): ArrayList<SourceLine>
+
+    public func isEmpty(): Bool
+
+    public func getContent(): String
+
+    public func getSourceSpans(): ArrayList<SourceSpan>
 }
 
-public class FencedCodeBlockParserFactory <: BlockParserFactory {
-	/*
-     * 初始化一个特定的 FencedCodeBlockParser 实例来解析当前的文本行
-     * 参数 ParserState - ParserState 对象
-     * 参数 MatchedBlockParser - MatchedBlockParser 对象
-     * 返回值 Option<BlockStart> - BlockStart
-     */
-    public func tryStart(state: ParserState, _: MatchedBlockParser): Option<BlockStart>
+/**
+ * 来自输入源的一行或一行的一部分。
+ */
+public class SourceLine {
+    public static func of(content: String, sourceSpan: ?SourceSpan): SourceLine
+
+    public func getContent(): String
+
+    public func getSourceSpan(): ?SourceSpan
+
+    public func substring(beginIndex: Int, endIndex: Int): SourceLine
 }
 
-public class HeadingParserFactory <: BlockParserFactory {
-	/*
-     * 初始化一个特定的 HeadingParser 实例来解析当前的文本行
-     * 参数 ParserState - ParserState 对象
-     * 参数 MatchedBlockParser - MatchedBlockParser 对象
-     * 返回值 Option<BlockStart> - BlockStart
+/**
+ * 源输入中的一段文本。
+ * 如果一个Block有多行，则每行都会有一个SourceSpan
+ */
+public class SourceSpan <: Equatable<SourceSpan> & ToString {
+
+    public static func of(line: Int, col: Int, input: Int, length: Int): SourceSpan
+
+    /**
+     * @return 从 0 开始的行索引，例如 0 表示第一行，1 表示第二行，以此类推
      */
-    public func tryStart(state: ParserState, matchedBlockParser: MatchedBlockParser): Option<BlockStart>
+    public func getLineIndex(): Int
+
+    /**
+     * @return 从 0 开始的列（行内字符）索引，例如 0 表示行的第一个字符，1 表示第二个字符，以此类推
+     */
+    public func getColumnIndex(): Int
+
+    /**
+     * @return 在整个输入中从 0 开始的索引
+     */
+    public func getInputIndex(): Int
+
+    /**
+     * @return 跨度的字符长度
+     */
+    public func getLength(): Int
+
+    /**
+     * 截取
+     */
+    public func subSpan(beginIndex: Int): SourceSpan
+
+    /**
+     * 截取
+     */
+    public func subSpan(beginIndex: Int, endIndex: Int): SourceSpan
+
+    public operator func ==(that: SourceSpan): Bool
+
+    public func toString(): String
 }
 
-public class HtmlBlockParserFactory <: BlockParserFactory {
-	/*
-     * 初始化一个特定的 HtmlBlockParser 实例来解析当前的文本行
-     * 参数 ParserState - ParserState 对象
-     * 参数 MatchedBlockParser - MatchedBlockParser 对象
-     * 返回值 Option<BlockStart> - BlockStart
-     */
-    public func tryStart(state: ParserState, matchedBlockParser: MatchedBlockParser): Option<BlockStart> 
+/**
+ * 可添加的源跨度列表。负责合并相邻的源跨度。
+ */
+public class SourceSpans {
+    public static func empty(): SourceSpans
+
+    public func getSourceSpans(): ArrayList<SourceSpan>
+
+    public func addAllFrom(nodes: Collection<Node>): Unit
+
+    public func addAllFromTexts(nodes: ReadOnlyList<Text>): Unit
+
+    public func addAll(other: ReadOnlyList<SourceSpan>): Unit
 }
 
-public class IndentedCodeBlockParserFactory <: BlockParserFactory {
-	/*
-     * 初始化一个特定的 IndentedCodeBlockParser 实例来解析当前的文本行
-     * 参数 ParserState - ParserState 对象
-     * 参数 MatchedBlockParser - MatchedBlockParser 对象
-     * 返回值 Option<BlockStart> - BlockStart
-     */
-    public func tryStart(state: ParserState, _: MatchedBlockParser): Option<BlockStart>
+/**
+ * {@link Scanner} 内的源位置。此类型有意保持不透明，以免暴露 Scanner 的内部结构。
+ */
+public class SourcePosition <: ToString {
+    public SourcePosition(public let lineIndex: Int, public let index: Int)
+    public func toString(): String
 }
 
-public class LinkReferenceDefinitionParser {
-	/*
-     * 解析当前的文本行
-     * 参数 CharSequence - 文本
+/**
+ * 是否在解析时包含 {@link SourceSpan}，
+ * 参见 {@link ParserBuilder#includeSourceSpans(IncludeSourceSpans)}。
+ */
+public enum IncludeSourceSpans <: Equatable<IncludeSourceSpans> {
+    /**
+     * 不包含源跨度。
      */
-    public func parse(line: CharSequence): Unit
+    | NONE
+    /**
+     * 在 Block 节点上包含源跨度。
+     */
+    | BLOCKS
+    /**
+     * 在块节点和行内节点上都包含源跨度。
+     */
+    | BLOCKS_AND_INLINES
 
-    /*
-     * 获取State对象
-     * 返回值 State - State对象
-     */
-    public func getState(): State
+    public operator func ==(other: IncludeSourceSpans): Bool
 }
 
-public enum State {
-    | START_DEFINITION
+/**
+ * 解析时的文本扫描器
+ */
+public class Scanner {
 
-    | LABEL
+    public static func of(lines: SourceLines): Scanner
 
-    | DESTINATION
+    public func peekRune(): Rune
+    public func peekLine(): String
+    public func peek(): Byte
+    public func peekPrev(): Byte
+    public func peekCodePoint(): Rune
+    public func peekPreviousCodePoint(): Rune
 
-    | START_TITLE
+    public func hasNext(): Bool
 
-    | TITLE
-
-    | PARAGRAPH
-}
-
-public class ListBlockParserFactory <: BlockParserFactory {
-	/*
-     * 初始化一个特定的 ListBlockParser 实例来解析当前的文本行
-     * 参数 ParserState - ParserState 对象
-     * 参数 MatchedBlockParser - MatchedBlockParser 对象
-     * 返回值 Option<BlockStart> - BlockStart
+    /**
+     * 下一个字符
      */
-    public func tryStart(state: ParserState, matchedBlockParser: MatchedBlockParser): Option<BlockStart> 
+    public func next(): Unit
+    /**
+     * 检查下一个字节 并前进
+     */
+    public func next(b: Byte): Bool
+    /**
+     * 检查指定的 Rune 是否为下一个字符并前进位置。
+     *
+     * @param c 要检查的 Rune（包括换行符）
+     * @return 如果匹配且位置已前进则返回 true，否则返回 false
+     */
+    public func nextRune(c: Rune): Bool
+    /**
+     * 检查当前行是否具有指定内容并前进位置。注意，如果要匹配换行符，请使用 {@link #next(Rune)}。
+     *
+     * @param content 要在单行上匹配的文本内容（不包括换行符）
+     * @return 如果匹配且位置已前进则返回 true，否则返回 false
+     */
+    public func next(content: String): Bool
+
+    public func matchMultipleRune(c: Rune): Int
+    public func matchMultiple(b: Byte): Int
+    public func matches(matcher: CharMatcher): Int
+
+    /**
+     * 跳过空格
+     * @return 跳过空格数量
+     */
+    public func whitespace(): Int
+
+    public func find(c: Byte): Int
+    public func find(matcher: CharMatcher): Int
+
+    // 不暴露 Int 索引，因为将来我们可能希望将输入切换为行的 Collection<String>，而不是一个连续的 String。
+    public func position(): SourcePosition
+    public func setPosition(position: SourcePosition): Unit
+
+    // 对于调用者将结果追加到 StringBuilder 的情况，我们可以提供另一个方法来避免一些不必要的复制。
+    public func getSource(begin: SourcePosition, end: SourcePosition): SourceLines
+
 }
 
-public class ThematicBreakParserFactory <: BlockParserFactory {
-	/*
-     * 初始化一个特定的 ThematicBreakParser 实例来解析当前的文本行
-     * 参数 ParserState - ParserState 对象
-     * 参数 MatchedBlockParser - MatchedBlockParser 对象
-     * 返回值 Option<BlockStart> - BlockStart
-     */
-    public func tryStart(state: ParserState, _: MatchedBlockParser): Option<BlockStart>
-}
 ```
 
 ##### 2.2.2 示例
@@ -1414,7 +1447,7 @@ class DashBlockParserFactory <: AbstractBlockParserFactory {
 
     public override func tryStart(state: ParserState, matchedBlockParser: MatchedBlockParser): ?BlockStart {
         if (state.getLine() == ("---")) {
-            return BlockStart.of4Cj(DashBlockParser())
+            return BlockStart.of(DashBlockParser())
         }
         return BlockStart.none()
     }
@@ -1460,6 +1493,11 @@ public interface InlineParserContext {
      * 返回值 ArrayList<DelimiterProcessor> - ArrayList<DelimiterProcessor>
      */
     func getCustomDelimiterProcessors(): ArrayList<DelimiterProcessor>
+
+    /**
+     * 获取用户自定义的分割符处理器factory
+     */
+    func getCustomInlineContentParserFactories(): ArrayList<InlineContentParserFactory>
     
 	/*
      * 根据名字获取对应的链接引用
@@ -1467,6 +1505,21 @@ public interface InlineParserContext {
      * 返回值 ?LinkReferenceDefinition - ?LinkReferenceDefinition
      */
     func getLinkReferenceDefinition(label: String): ?LinkReferenceDefinition
+
+    /**
+     * 获取用户自定义的链接处理器
+     */
+    func getCustomLinkProcessors(): ArrayList<LinkProcessor>
+
+    /**
+     * 获取用户自定义的链接标志符
+     */
+    func getCustomLinkMarkers(): HashSet<Rune>
+
+    /**
+     * 根据标签（label）查找类型定义
+     */
+    func getDefinition(typ: String, label: String): ?LinkReferenceDefinition
 }
 
 public interface InlineParserFactory {
@@ -1498,56 +1551,12 @@ public interface DelimiterProcessor {
     func getMinLength(): Int64
 
 	/*
-     * 获取多少分隔符可以被使用
-     * 参数 DelimiterRun - 开始 DelimiterRun(连续分隔符序列)
-     * 参数 DelimiterRun - 结束DelimiterRun(连续分隔符序列)
-     * 返回值 Int64 - 个数
-     */
-    func getDelimiterUse(opener: DelimiterRun, closer: DelimiterRun): Int64
-
-	/*
      * 处理行内元素
-     * 参数 Text - 开始文本
-     * 参数 Text - 结束文本
-     * 参数 Int64 - 可以用的分隔符数量 决定是Emphasis还是StrongEmphasis 的 Node
+     * 参数 openingRun - 包含开始符号的文本节点
+     * 参数 closingRun - 包含结束符号的文本节点
+     * 返回值 使用了多少分隔符
      */
-    func process(opener: Text, closer: Text, delimiterUse: Int64): Unit
-}
-
-public abstract class EmphasisDelimiterProcessor <: DelimiterProcessor {
-	/*
-     * 获取开始分隔符
-     * 返回值 Rune - 开始分隔符
-     */
-    public override func getOpeningCharacter(): Rune
-
-	/*
-     * 获取结束分隔符
-     * 返回值 Rune - 结束分隔符
-     */
-    public override func getClosingCharacter(): Rune
-
-	/*
-     * 获取最小长度 为1
-     * 返回值 Int64 - 最小长度 为1
-     */
-    public override func getMinLength(): Int64
-
-	/*
-     * 获取多少分隔符可以被使用
-     * 参数 DelimiterRun - 开始 DelimiterRun(连续分隔符序列)
-     * 参数 DelimiterRun - 结束DelimiterRun(连续分隔符序列)
-     * 返回值 Int64 - 个数
-     */
-    public override func getDelimiterUse(opener: DelimiterRun, closer: DelimiterRun): Int64 
-
-	/*
-     * 处理行内元素
-     * 参数 Text - 开始文本
-     * 参数 Text - 结束文本
-     * 参数 Int64 - 可以用的分隔符数量 决定是Emphasis还是StrongEmphasis 的 Node 
-     */
-    public override func process(opener: Text, closer: Text, delimiterUse: Int64): Unit
+    func process(openingRun: DelimiterRun, closingRun: DelimiterRun): Int
 }
 
 public interface DelimiterRun {
@@ -1574,7 +1583,79 @@ public interface DelimiterRun {
      * 返回值 Bool - 是否可以关闭
      */
     func getOriginalLength(): Int64
+
+	/*
+     * 最内层的开始分隔符，例如对于 ***，即最后一个 *
+     */
+    func getOpener(): Text
+
+	/*
+     * 最内层的结束分隔符，例如对于 ***，即第一个 *
+     */
+    func getCloser(): Text
+
+	/*
+     * 获取指定长度的开始分隔符节点。长度必须在 1 到 length() 之间。
+     * 例如，对于分隔符序列 ***，传入 1 将返回最后一个 *，
+     * 传入 2 将返回倒数第二个 * 和最后一个 *。
+     */
+    func getOpeners(length: Int): ReadOnlyList<Text>
+
+	/*
+     * 获取指定长度的结束分隔符节点。长度必须在 1 到 length() 之间。
+     * 例如，对于分隔符序列 ***，传入 1 将返回第一个 *，
+     * 传入 2 将返回第一个 * 和第二个 *。
+     */
+    func getClosers(length: Int): ReadOnlyList<Text>
 }
+
+/*
+ * 行内内容解析器。通过 InlineContentParserFactory 注册，并由其 create 方法创建。
+ * 其生命周期与每个被解析的行内内容片段绑定，每次解析都会创建一个新的实例。
+ */
+public interface InlineContentParser {
+
+	/*
+     * 尝试从当前位置开始解析行内内容。注意当前位置的字符是创建此解析器的工厂的
+     * getTriggerCharacters() 之一。
+     * 对于正在解析的给定行内内容片段，此方法可以被多次调用：每次遇到触发字符时调用一次。
+     *
+     * 参数 inlineParserState - 行内解析器的当前状态
+     * 返回值 ParsedInline - 解析结果；可以表示此解析器不感兴趣，或解析成功
+     */
+    func tryParse(inlineParserState: InlineParserState): ParsedInline
+}
+
+/*
+ * 用于扩展行内内容解析的工厂。
+ * 关于如何注册，请参见 ParserBuilder.customInlineContentParserFactory。
+ */
+public interface InlineContentParserFactory {
+
+	/*
+     * 行内内容解析器需要有一个特殊的"触发"字符来激活它。当在内联解析过程中遇到此字符时，
+     * 将使用当前解析器状态调用 InlineContentParser.tryParse。也可以注册多个触发字符。
+     */
+    @Frozen
+    func getTriggerCharacters(): HashSet<Rune>
+
+	/*
+     * 创建一个执行解析的 InlineContentParser。对于块结构内的每个行内内容文本片段，
+     * create 方法会被调用一次，之后每次遇到触发字符时也会被调用。
+     */
+    func create(): InlineContentParser
+}
+
+public interface InlineParserState {
+
+	/*
+     * 返回当前位置（位于行内解析器所注册的触发字符上）的输入扫描器。
+     * 注意，此方法始终返回同一个实例，如果需要回溯，请使用
+     * Scanner.position() 和 Scanner.setPosition(SourcePosition)。
+     */
+    func getScanner(): Scanner
+}
+
 ```
 
 ##### 2.3.2 示例
@@ -1617,6 +1698,11 @@ public abstract class StrikethroughNodeRenderer <: NodeRenderer {
 }
 
 public class Strikethrough <: CustomNode & Delimited {
+    /*
+     * 构造函数
+     * 参数 delimiter 使用的分隔符
+     */
+    public Strikethrough(let delimiter: String) {}
 	/*
      * 获取起始分隔符
      * 返回值 ?String> - 起始分隔符
@@ -2198,81 +2284,3 @@ public type HtmlNodeRendererFactory = (context: HtmlNodeRendererContext) -> Node
     }
 ```
 
-### 4 util
-
-前置条件：NA 
-
-场景：
-
-约束：NA
-
-可靠性：NA
-
-#### 4.1 util
-# asdasd   
-##### 4.1.1 主要接口
-
-```
-public class Escaping {
-	/*
-     * html转义
-     * 参数 String - String
-     * 返回值 String - 转义后的String
-     */
-    public static func escapeHtml(input: String): String
-
-	/*
-     * 返回转义前的原始文本
-     * 参数 String - String
-     * 返回值 String -String
-     */
-    public static func unescapeString(s: String): String
-
-	/*
-     * 百分比编码
-     * 参数 String - String
-     * 返回值 String - 编码后的String
-     */
-    public static func percentEncodeUrl(s: String): String
-}
-
-public interface Replacer {
-	/*
-     * 替换
-     * 参数 String - String
-     * 参数 StringBuilder - String
-     */
-    func replace(input: String, sb: StringBuilder): Unit
-}
-
-public class Html5Entities {
-	/*
-     * 获取特殊字符的map
-     * 返回值 HashMap<String, String> - 特殊字符的map
-     */
-    public static func readEntities(): HashMap<String, String>
-}
-```
-
-##### 4.2.2 示例
-
-```cangjie
-    import commonmark4cj.commonmark.*
-
-    @TestCase
-    func escaping_test(): Unit {
-        let escapeString6: String = Escaping.escapeHtml("< start")
-        @PowerAssert(escapeString6 == "&lt; start")
-        let escapeString7: String = Escaping.escapeHtml("end >")
-        @PowerAssert(escapeString7 == "end &gt;")
-        let escapeString8: String = Escaping.escapeHtml("< both >")
-        @PowerAssert(escapeString8 == "&lt; both &gt;")
-        let escapeString9: String = Escaping.escapeHtml("< middle & too >")
-        @PowerAssert(escapeString9 == "&lt; middle &amp; too &gt;")
-
-        let text = "Example string with special characters: !@#$%^&*()_+|~- and encoded characters: &amp;#x123; &amp;#123; and &amp;test;"
-        let unescapeString: String = Escaping.unescapeString(text)
-        let t = "Example string with special characters: !@#$%^&*()_+|~- and encoded characters: &#x123; &#123; and &test;"
-        @PowerAssert(unescapeString == t)
-    }
-```

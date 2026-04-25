@@ -8,10 +8,14 @@
 package commonmark4cj.table
 
 internal import commonmark4cj.commonmark.*
-internal import std.collection.{HashSet, HashMap, Map, ArrayList}
+internal import std.collection.*
 
 extend<T> Option<T> {
     operator func ()(): T {
         this.getOrThrow()
     }
+}
+
+func StringFromArrayListByte(sb: ArrayList<Byte>): String {
+    unsafe { String.fromUtf8Unchecked(sb.getRawArray()[..sb.size]) }
 }
