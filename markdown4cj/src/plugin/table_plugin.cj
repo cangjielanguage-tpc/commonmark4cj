@@ -54,7 +54,7 @@ public class TablePlugin <: AbstractMarkdownPlugin {
             .on("TableBody", tableNodeVisitor)
     }
 
-    func tableNodeVisitor(visitor: MarkdownVisitor, node: Node) {
+    func tableNodeVisitor(visitor: MarkdownVisitor, node: Node): Unit {
         buildView(node, true)
         visitor.visitChildren(node)
     }

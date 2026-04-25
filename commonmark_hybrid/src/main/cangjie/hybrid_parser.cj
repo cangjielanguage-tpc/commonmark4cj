@@ -103,7 +103,7 @@ public class HybridParser <: SharedObject & JSInteropType<HybridParser> {
         obj.toJSValue()
     }
 
-    public static func fromJSValue(context: JSContext, input: JSValue) {
+    public static func fromJSValue(context: JSContext, input: JSValue): HybridParser {
         let jsObj = input.asObject(context)
         let jsExt = jsObj.getAttachInfo() ?? throw Exception("class: get external failed.")
         let obj = jsExt.cast<HybridParser>() ?? throw Exception("class: get clazz failed.")

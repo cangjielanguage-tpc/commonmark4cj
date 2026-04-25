@@ -13,9 +13,9 @@ public open class LatexInlineText <: CustomNode {
     public func getLiteral(): String {
         return literal
     }
-    public func getNodeType() {
+    public func getNodeType(): String {
         "LatexInlineText"
     }
 }
 
-public let needLatexInlineParse = [false]
+public let needLatexInlineParse: Array<Bool> = [false]

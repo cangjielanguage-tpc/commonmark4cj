@@ -28,14 +28,14 @@ public class EntityInlineParser <: InlineContentParser {
         if (c == b'#') {
             // Numeric
             scanner.next()
-            if (scanner.next(b'x') || scanner.next(b'X')) {
+            if (scanner.next(b'x') || scanner.next(b'X')) { /*cjlint-ignore !G.EXP.03 */
                 let digits: Int = scanner.matches(hex)
-                if (1 <= digits && digits <= 6 && scanner.next(b';')) {
+                if (1 <= digits && digits <= 6 && scanner.next(b';')) { /*cjlint-ignore !G.EXP.03 */
                     return entity(scanner, start)
                 }
             } else {
                 let digits: Int = scanner.matches(dec)
-                if (1 <= digits && digits <= 7 && scanner.next(b';')) {
+                if (1 <= digits && digits <= 7 && scanner.next(b';')) { /*cjlint-ignore !G.EXP.03 */
                     return entity(scanner, start)
                 }
             }

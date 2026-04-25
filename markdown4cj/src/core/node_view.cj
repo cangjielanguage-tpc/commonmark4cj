@@ -69,7 +69,7 @@ public class NodeView <: ToString {
     /**
      * 用于将父节点的样式传递给子节点
      */
-    func mergeView(parentView: NodeView) {
+    func mergeView(parentView: NodeView): Unit {
         this.link = parentView.link
         this.emphasis = parentView.emphasis
         this.strongEmphasis = parentView.strongEmphasis
@@ -94,7 +94,7 @@ public class NodeView <: ToString {
     /**
      * 根据当前节点类型设置样式
      */
-    func setView(currentNode: Node) {
+    func setView(currentNode: Node): Unit {
         if (currentNode is BlockQuote) {
             this.blockQuoteDepth++
             this.blockQuote = true
