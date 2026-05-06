@@ -13,7 +13,7 @@
 ## 介绍
 
 用于根据CommonMark规范（以及一些扩展）解析和呈现Markdown文本。
-主页 [commonmark_hybrid](https://gitcode.com/Cangjie-TPC/commonmark4cj/tree/commonmark_hybrid_OHCangjie-5.1)
+主页 [commonmark_hybrid](https://gitcode.com/Cangjie-TPC/commonmark4cj/tree/commonmark_hybrid_cangjie-plugin-5.1.1)
 
 ### 特性
 
@@ -189,8 +189,12 @@ Document{}
 
 ## 约束与限制
 
-- 在下述版本验证通过:
-  - IDE: DevEco Studio 5.1.1 Release(Build Version:5.1.1.851)
+在下述版本验证通过:
+
+| 编号 | 依赖构建工具      | 版本号    |
+| ---- | ----------------- | --------- |
+| 1    | **DevEco Studio** | 5.1.1.851 |
+| 2    | **cjc**           | v1.0.5    |
 
 ## 开源协议
 

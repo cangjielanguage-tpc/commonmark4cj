@@ -33,3 +33,5 @@ log.txt
 module-lock.json
 .cjpm-history
 src/z_test.cj
+test_temp
+tmp
