@@ -21,7 +21,7 @@ main() {
 public class UsageExampleTest {
     @TestCase
     public func parseAndRender(): Unit {
-        let parser: Parser = Parser.builder().build()
+        let parser: Parser = Parser.builder().includeSourceSpans(IncludeSourceSpans.BLOCKS_AND_INLINES).build()
         let document: Node = parser.parse("This is *Sparta*")
         let renderer: HtmlRenderer = HtmlRenderer.builder().escapeHtml(true).build()
         assertEquals("<p>This is <em>Sparta</em></p>\n", renderer.render(document))
@@ -29,7 +29,7 @@ public class UsageExampleTest {
 
     @TestCase
     public func visitor(): Unit {
-        let parser: Parser = Parser.builder().build()
+        let parser: Parser = Parser.builder().includeSourceSpans(IncludeSourceSpans.BLOCKS_AND_INLINES).build()
         let node: Node = parser.parse("Example\n=======\n\nSome more text")
         let visitor: WordCountVisitor = WordCountVisitor()
         node.accept(visitor)
@@ -38,7 +38,7 @@ public class UsageExampleTest {
 
     @TestCase
     public func addAttributes(): Unit {
-        let parser: Parser = Parser.builder().build()
+        let parser: Parser = Parser.builder().includeSourceSpans(IncludeSourceSpans.BLOCKS_AND_INLINES).build()
         let factory: AttributeProviderFactory = {context: AttributeProviderContext => ImageAttributeProvider()}
         let renderer: HtmlRenderer = HtmlRenderer.builder().attributeProviderFactory(factory).build()
 
@@ -51,7 +51,7 @@ public class UsageExampleTest {
 
     @TestCase
     public func customizeRendering(): Unit {
-        let parser: Parser = Parser.builder().build()
+        let parser: Parser = Parser.builder().includeSourceSpans(IncludeSourceSpans.BLOCKS_AND_INLINES).build()
         let factory: HtmlNodeRendererFactory = {context: HtmlNodeRendererContext => IndentedCodeBlockNodeRenderer(
                 context)}
         let renderer: HtmlRenderer = HtmlRenderer.builder().nodeRendererFactory(factory).build()
