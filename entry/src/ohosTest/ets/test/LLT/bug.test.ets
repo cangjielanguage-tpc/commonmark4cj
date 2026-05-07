@@ -9,7 +9,7 @@ import {
   printNode,
   JsNode
 } from '@cangjie-tpc/commonmark_hybrid';
-import { parseIntoJsNode } from '../../../main/ets/pages/md'
+import { parseIntoJsNode } from '../../../../main/ets/pages/md'
 import { errjson } from './md1';
 import { err2 } from './md2';
 import { md_latex_1 } from './md3';
@@ -36,12 +36,12 @@ export default function bugTest() {
       // This API supports only one parameter: clear action function.
     })
     it('bug1', 0, async () => {
-      let doc = await parseIntoJsNode(errjson, 2)
+      let doc:JsNode = await parseIntoJsNode(errjson, 2)
       let str = printNode(doc)
       console.error(str)
     })
     it('bug2', 0, async () => {
-      let doc = await parseIntoJsNode(err2, 2)
+      let doc:JsNode = await parseIntoJsNode(err2, 2)
       let str = printNode(doc)
       console.error(str)
     })
@@ -49,7 +49,7 @@ export default function bugTest() {
       let md = `\\[
 asd
 \\]`
-      let doc = await parseIntoJsNode(md, 2)
+      let doc:JsNode = await parseIntoJsNode(md, 2)
       let str = printNode(doc)
       console.error(md)
       console.error(str)
@@ -61,7 +61,7 @@ asd
       let md = `$$
 asd
 $$`
-      let doc = await parseIntoJsNode(md, 2)
+      let doc :JsNode= await parseIntoJsNode(md, 2)
       let str = printNode(doc)
       console.error(str)
       let latex: JsNode = doc.getFirstChild()!
@@ -70,10 +70,10 @@ $$`
     })
     it('bugLatex3', 0, async () => {
       let md = `4. $$a$$ 应该渲染成 $b$`
-      let doc = await parseIntoJsNode(md, 2)
+      let doc:JsNode = await parseIntoJsNode(md, 2)
       let str = printNode(doc)
       console.error(str)
-      let p = doc.getFirstChild()?.getFirstChild()?.getFirstChild()
+      let p : JsNode|undefined= doc.getFirstChild()?.getFirstChild()?.getFirstChild()
       let latexa: JsNode = p?.getFirstChild()!
       expect(latexa.getNodeType()).assertEqual("LatexMathNode")
       let latexb: JsNode = p?.getLastChild()!
@@ -88,7 +88,7 @@ $$`
 
 - **对角矩阵的乘法特点**：两个对角矩阵相乘，结果仍是对角矩阵，且**对角线元素就是对应位置元素的乘积**
   $$\begin{pmatrix} a_1 & 0 \\ 0 & a_2 \end{pmatrix} \begin{pmatrix} b_1 & 0 \\ 0 & b_2 \end{pmatrix} = \begin{pmatrix} a_1b_1 & 0 \\ 0 & a_2b_2 \end{pmatrix}$$`
-      let doc = await parseIntoJsNode(md, 2)
+      let doc :JsNode= await parseIntoJsNode(md, 2)
       let str = printNode(doc)
       console.error(str)
       let list = doc.getFirstChild()!
@@ -105,7 +105,7 @@ $$`
       let md = `| h1 | h2 | h3 | h4 |
 |:---|---:|:---:|
 | a | b | c | d |`
-      let doc = await parseIntoJsNode(md, 2)
+      let doc :JsNode= await parseIntoJsNode(md, 2)
       let str = printNode(doc)
       console.error(str)
       let table: JsNode = doc.getFirstChild()!
@@ -127,7 +127,7 @@ $$`
     })
     it('auto_link1', 0, async () => {
       let md = `在：https://biso6df2x4pkw.ok.kimi.link 啊在：https://biso6df2x4pkw.ok.kimi.link 啊`
-      let doc = await parseIntoJsNode(md, 2)
+      let doc:JsNode = await parseIntoJsNode(md, 2)
       let str = printNode(doc)
       console.error(str)
       let p: JsNode = doc.getFirstChild()!
@@ -144,7 +144,7 @@ $$`
     })
     it('auto_link2', 0, async () => {
       let md = `已部署至https://7sncmf6ezkojw.ok.kimi.link，可直接访问查看完`
-      let doc = await parseIntoJsNode(md, 2)
+      let doc:JsNode = await parseIntoJsNode(md, 2)
       let str = printNode(doc)
       console.error(str)
       let p: JsNode = doc.getFirstChild()!
@@ -160,7 +160,7 @@ $$`
     })
     it('delimiter1', 0, async () => {
       let md = `**WARNING：**DON'T TOUCH THE CHILD # NOT WORKING`
-      let doc = await parseIntoJsNode(md, 2)
+      let doc: JsNode = await parseIntoJsNode(md, 2)
       let str = printNode(doc)
       console.error(str)
       let p: JsNode = doc.getFirstChild()!
@@ -173,7 +173,7 @@ $$`
     })
     it('delimiter2', 0, async () => {
       let md = `**WARNING,**DON'T TOUCH THE CHILD # NOT WORKING`
-      let doc = await parseIntoJsNode(md, 2)
+      let doc: JsNode = await parseIntoJsNode(md, 2)
       let str = printNode(doc)
       console.error(str)
       let p: JsNode = doc.getFirstChild()!
@@ -185,7 +185,7 @@ $$`
     })
     it('delimiter3', 0, async () => {
       let md = `**[阿克西奥斯]**（/ˈæksɪɒs/）`
-      let doc = await parseIntoJsNode(md, 2)
+      let doc:JsNode = await parseIntoJsNode(md, 2)
       let str = printNode(doc)
       console.error(str)
       let p: JsNode = doc.getFirstChild()!
@@ -205,7 +205,7 @@ $$`
 $$
 \iint_{\partial V} \mathbf{F} \cdot d\mathbf{S} = \iiint_V (\nabla \cdot \mathbf{F}) \, dV
 $$`
-      let doc = await parseIntoJsNode(md, 2)
+      let doc: JsNode = await parseIntoJsNode(md, 2)
       let str = printNode(doc)
       console.error(str)
       let p: JsNode = doc.getFirstChild()!
