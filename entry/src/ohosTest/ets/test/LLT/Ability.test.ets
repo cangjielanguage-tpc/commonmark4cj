@@ -9,7 +9,7 @@ import {
   printNode,
   JsNode
 } from '@cangjie-tpc/commonmark_hybrid';
-import { parseIntoJsNode } from '../../../main/ets/pages/md'
+import { parseIntoJsNode } from '../../../../main/ets/pages/md'
 import readme from './readme'
 
 export default function abilityTest() {
@@ -45,7 +45,7 @@ export default function abilityTest() {
     it('readme', 0, async () => {await readme()})
     it('test_parse0_001', 0, async () => {
       let md = '我0123a56a89'
-      let testNode = await parseIntoJsNode(md, 0)
+      let testNode:JsNode = await parseIntoJsNode(md, 0)
       expect(testNode.getNodeType()).assertEqual("Document")
       expect(testNode.getPrevious()).assertEqual(undefined)
       expect(testNode.getFirstChild()?.getNodeType()).assertEqual("Paragraph")
@@ -69,7 +69,7 @@ export default function abilityTest() {
     })
     it('test_parse0_002', 0, async () => {
       let md = '我0123a56a89'
-      let node = await parseIntoJsNode(md, 0)
+      let node :JsNode= await parseIntoJsNode(md, 0)
       let testNode = node.getFirstChild()
       if (testNode == undefined) {
         expect().assertFail()
@@ -98,8 +98,8 @@ export default function abilityTest() {
     })
     it('test_parse0_003', 0, async () => {
       let md = '我0123a56a89'
-      let node01 = await parseIntoJsNode(md, 0)
-      let node02 = node01.getFirstChild()
+      let node01 :JsNode= await parseIntoJsNode(md, 0)
+      let node02 :JsNode|undefined= node01.getFirstChild()
       if (node02 == undefined || node02.getFirstChild() == undefined) {
         expect().assertFail()
       } else {
@@ -133,7 +133,7 @@ export default function abilityTest() {
     it('test_parse1_emptyParser_001', 0, async () => {
       let md = '我0123a56a89'
       let myPaser = new MyParser()
-      let testNode = await parseIntoJsNode(md, 0, myPaser)
+      let testNode : JsNode= await parseIntoJsNode(md, 0, myPaser)
       expect(testNode.getNodeType()).assertEqual("Document")
       expect(testNode.getPrevious()).assertEqual(undefined)
       expect(testNode.getFirstChild()?.getNodeType()).assertEqual("Paragraph")
@@ -158,7 +158,7 @@ export default function abilityTest() {
     it('test_parse1_emptyParser_002', 0, async () => {
       let md = '我0123a56a89'
       let myPaser = new MyParser()
-      let node = await parseIntoJsNode(md, 0, myPaser)
+      let node :JsNode= await parseIntoJsNode(md, 0, myPaser)
       let testNode = node.getFirstChild()
       if (testNode == undefined) {
         expect().assertFail()
@@ -188,7 +188,7 @@ export default function abilityTest() {
     it('test_parse1_emptyParser_003', 0, async () => {
       let md = '我0123a56a89'
       let myPaser = new MyParser()
-      let node01 = await parseIntoJsNode(md, 0, myPaser)
+      let node01 :JsNode= await parseIntoJsNode(md, 0, myPaser)
       let node02 = node01.getFirstChild()
       if (node02 == undefined || node02.getFirstChild() == undefined) {
         expect().assertFail()
@@ -223,7 +223,7 @@ export default function abilityTest() {
     it('test_parse1_notEmptyParser_001', 0, async () => {
       let md = '<a>fsfsfsddfdsfabd</a>'
       let myPaser = new MyParser()
-      let testNode = await parseIntoJsNode(md, 0, myPaser)
+      let testNode:JsNode= await parseIntoJsNode(md, 0, myPaser)
       expect(testNode.getNodeType()).assertEqual("Document")
       expect(testNode.getPrevious()).assertEqual(undefined)
       expect(testNode.getFirstChild()?.getNodeType()).assertEqual("Paragraph")
@@ -248,7 +248,7 @@ export default function abilityTest() {
     it('test_parse1_notEmptyParser_002', 0, async () => {
       let md = '<a>fsfsfsddfdsfbd</a>'
       let myPaser = new MyParser()
-      let node = await parseIntoJsNode(md, 0, myPaser)
+      let node:JsNode= await parseIntoJsNode(md, 0, myPaser)
       console.error(printNode(node))
       let testNode = node.getFirstChild()
       if (testNode == undefined) {
@@ -279,7 +279,7 @@ export default function abilityTest() {
     it('test_parse1_notEmptyParser_003', 0, async () => {
       let md = '<a>fsfsfsddfdsfabd</a>'
       let myPaser = new MyParser()
-      let node01 = await parseIntoJsNode(md, 0, myPaser)
+      let node01:JsNode = await parseIntoJsNode(md, 0, myPaser)
       let node02 = node01.getFirstChild()
       if (node02 == undefined || node02.getFirstChild() == undefined) {
         expect().assertFail()
@@ -313,7 +313,7 @@ export default function abilityTest() {
     })
     it('test_parse1_notEmptyParser_004', 0, async () => {
       let md = '<a>fsfsfsddfdsfabd</a>'
-      let node01 = await parseIntoJsNode(md, 0)
+      let node01:JsNode = await parseIntoJsNode(md, 0)
       let node02 = node01.getFirstChild()
       if (node02 == undefined || node02.getFirstChild() == undefined) {
         expect().assertFail()
@@ -348,7 +348,7 @@ export default function abilityTest() {
     it('test_parse1_notEmptyParser_005', 0, async () => {
       let md = '<INSERT_IMAGE id="123456" />'
       let myPaser = new InsertImageParser()
-      let node01 = await parseIntoJsNode(md, 0, myPaser)
+      let node01 :JsNode= await parseIntoJsNode(md, 0, myPaser)
       let node02 = node01.getFirstChild()
       if (node02 == undefined || node02.getFirstChild() == undefined) {
         expect().assertFail()
@@ -382,7 +382,7 @@ export default function abilityTest() {
     })
     it('test_parse1_notEmptyParser_006', 0, async () => {
       let md = '<INSERT_IMAGE id="123456" />'
-      let node01 = await parseIntoJsNode(md, 0)
+      let node01:JsNode = await parseIntoJsNode(md, 0)
       let node02 = node01.getFirstChild()
       if (node02 == undefined || node02.getFirstChild() == undefined) {
         expect().assertFail()
