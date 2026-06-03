@@ -10,6 +10,7 @@ class InlineParserImpl <: InlineParser & InlineParserState {
     private let inlineContentParserFactories: ArrayList<InlineContentParserFactory>
     private let linkProcessors: ArrayList<LinkProcessor>
     private let linkMarkers: BitSet
+    private let delimiterOpenCloseProcessor: ?DelimiterOpenCloseProcessor
 
     private let inlineParsers: HashMap<Rune, ArrayList<(InlineContentParserFactory, InlineContentParser)>> = HashMap()
     private var scanner: Scanner = unsafe { zeroValue() }
@@ -37,6 +38,7 @@ class InlineParserImpl <: InlineParser & InlineParserState {
         this.linkProcessors = calc.linkProcessors
         this.linkMarkers = calc.linkMarkers
         this.specialCharacters = calc.specialCharacters
+        this.delimiterOpenCloseProcessor = context.getDelimiterOpenCloseProcessor()
     }
 
     @Frozen
@@ -572,22 +574,28 @@ class InlineParserImpl <: InlineParser & InlineParserState {
 
         let after = scanner.peekCodePoint()
 
-        // We could be more lazy here, in most cases we don't need to do every match case.
-        let beforeIsPunctuation = before == Scanner.END_RUNE || Characters.isPunctuationCodePoint(before)
-        let beforeIsWhitespace = before == Scanner.END_RUNE || Characters.isWhitespaceCodePoint(before)
-        let afterIsPunctuation = after == Scanner.END_RUNE || Characters.isPunctuationCodePoint(after)
-        let afterIsWhitespace = after == Scanner.END_RUNE || Characters.isWhitespaceCodePoint(after)
-
-        let leftFlanking = !afterIsWhitespace && (!afterIsPunctuation || beforeIsWhitespace || beforeIsPunctuation)
-        let rightFlanking = !beforeIsWhitespace && (!beforeIsPunctuation || afterIsWhitespace || afterIsPunctuation)
         let canOpen: Bool
         let canClose: Bool
-        if (delimiterChar == r'_') {
-            canOpen = leftFlanking && (!rightFlanking || beforeIsPunctuation)
-            canClose = rightFlanking && (!leftFlanking || afterIsPunctuation)
+        if (let Some(processor) <- delimiterOpenCloseProcessor) {
+            let openCloseContext = DelimiterOpenCloseContext(
+                delimiterChar,
+                delimiterCount,
+                before,
+                after,
+                delimiterProcessor
+            )
+            let result = processor(openCloseContext) ?? openCloseContext.defaultResult()
+            canOpen = result.canOpen()
+            canClose = result.canClose()
         } else {
-            canOpen = leftFlanking && delimiterChar == delimiterProcessor.getOpeningCharacter()
-            canClose = rightFlanking && delimiterChar == delimiterProcessor.getClosingCharacter()
+            (canOpen, canClose) = defaultDelimiterOpenClose(
+                delimiterChar,
+                before,
+                after,
+                delimiterProcessor,
+                Characters.isPunctuationCodePoint,
+                Characters.isWhitespaceCodePoint
+            )
         }
 
         return DelimiterData(delimiters, canOpen, canClose)

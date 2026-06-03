@@ -494,7 +494,8 @@ class DocumentParser <: ParserState {
             delimiterProcessors,
             inlineParserContext.getCustomLinkProcessors(),
             inlineParserContext.getCustomLinkMarkers(),
-            definitions
+            definitions,
+            inlineParserContext.getDelimiterOpenCloseProcessor()
         )
         if (let Some(ctx) <- (this.inlineParserContext as InlineParserContextImpl)) {
             ctx.calc()

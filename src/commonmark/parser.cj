@@ -39,7 +39,7 @@ public class Parser {
         this.includeSourceSpans = builder._includeSourceSpans
 
         var context = InlineParserContextImpl(inlineContentParserFactories, delimiterProcessors, linkProcessors,
-            linkMarkers, Definitions())
+            linkMarkers, Definitions(), builder._delimiterOpenCloseProcessor)
         context.calc()
         this.inlineParserContext = context
         this.inlineParserFactory.create(context)
@@ -116,6 +116,7 @@ public class ParserBuilder {
     var _enabledBlockTypes: HashSet<NodeType> = DocumentParser.getDefaultBlockParserTypes()
     var _inlineParserFactory: ?InlineParserFactory = None
     var _includeSourceSpans = IncludeSourceSpans.NONE
+    var _delimiterOpenCloseProcessor: ?DelimiterOpenCloseProcessor = None
 
     let inlineContentParserFactories: ArrayList<InlineContentParserFactory> = ArrayList()
     let linkProcessors: ArrayList<LinkProcessor> = ArrayList()
@@ -183,6 +184,20 @@ public class ParserBuilder {
      */
     public func includeSourceSpans(includeSourceSpans: IncludeSourceSpans): This {
         this._includeSourceSpans = includeSourceSpans
+        return this
+    }
+
+    /**
+     * Customize how delimiter runs are detected as openers and/or closers.
+     * <p>
+     * By default, delimiters use the CommonMark flanking rules. The processor can return {@code None} to keep the
+     * built-in result for a delimiter run, or return a {@link DelimiterOpenCloseResult} to override it.
+     *
+     * @param delimiterOpenCloseProcessor processor for delimiter open/close detection
+     * @return {@code this}
+     */
+    public func delimiterOpenCloseProcessor(delimiterOpenCloseProcessor: DelimiterOpenCloseProcessor): This {
+        this._delimiterOpenCloseProcessor = delimiterOpenCloseProcessor
         return this
     }
 
