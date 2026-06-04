@@ -43,6 +43,12 @@ public interface InlineParserContext {
     func getCustomLinkMarkers(): HashSet<Rune>
 
     /**
+     * @return custom delimiter open/close processor that has been configured with
+     * {@link Parser.Builder#delimiterOpenCloseProcessor}.
+     */
+    func getDelimiterOpenCloseProcessor(): ?DelimiterOpenCloseProcessor
+
+    /**
      * Look up a {@link LinkReferenceDefinition} for a given label.
      *
      * @param label the link label to look up
@@ -71,19 +77,22 @@ class InlineParserContextImpl <: InlineParserContext {
     private let inlineContentParserFactories: ArrayList<InlineContentParserFactory>
     private let linkProcessors: ArrayList<LinkProcessor>
     private let linkMarkers: HashSet<Rune>
+    private let delimiterOpenCloseProcessor: ?DelimiterOpenCloseProcessor
 
     public init(
         inlineContentParserFactories: ArrayList<InlineContentParserFactory>,
         delimiterProcessors: ArrayList<DelimiterProcessor>,
         linkProcessors: ArrayList<LinkProcessor>,
         linkMarkers: HashSet<Rune>,
-        definitions: Definitions
+        definitions: Definitions,
+        delimiterOpenCloseProcessor: ?DelimiterOpenCloseProcessor
     ) {
         this.inlineContentParserFactories = inlineContentParserFactories
         this.delimiterProcessors = delimiterProcessors
         this.definitions = definitions
         this.linkProcessors = linkProcessors
         this.linkMarkers = linkMarkers
+        this.delimiterOpenCloseProcessor = delimiterOpenCloseProcessor
     }
 
     @Frozen
@@ -104,6 +113,10 @@ class InlineParserContextImpl <: InlineParserContext {
     @Frozen
     public func getCustomLinkMarkers(): HashSet<Rune> {
         return linkMarkers
+    }
+
+    public func getDelimiterOpenCloseProcessor(): ?DelimiterOpenCloseProcessor {
+        return delimiterOpenCloseProcessor
     }
 
     @Frozen
