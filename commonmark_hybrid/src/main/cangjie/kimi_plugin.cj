@@ -113,7 +113,7 @@ class InsertImageParser <: InlineParserIntegration {
 class KimiInlineParser3 <: InlineParserIntegration {
     static let START: Rune = r'\u{E3A0}'
     static let END: String = "\u{E3A8}"
-    static let LIMIT = 255
+    static let LIMIT = 500
     public func create(): InlineContentParser {
         this
     }

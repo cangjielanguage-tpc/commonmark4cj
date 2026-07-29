@@ -183,6 +183,14 @@ https://www.wanuxi.com/为美好的世界献上祝福第三季主视觉图公开
       data = "我".repeat(256)
       md = '\uE3A0' + data + '\uE3A8'
       doc = await parser.parse(md)
+      expect(doc.getFirstChild()!.getFirstChild()!.getProps()?.get("")).assertEqual(data)
+      data = "我".repeat(500)
+      md = '\uE3A0' + data + '\uE3A8'
+      doc = await parser.parse(md)
+      expect(doc.getFirstChild()!.getFirstChild()!.getProps()?.get("")).assertEqual(data)
+      data = "我".repeat(501)
+      md = '\uE3A0' + data + '\uE3A8'
+      doc = await parser.parse(md)
       expect(doc.getFirstChild()!.getFirstChild()!.getNodeType()).assertEqual("Text")
       md = 'asd\uE3A0qwe\uE3A8'
       doc = await parser.parse(md)

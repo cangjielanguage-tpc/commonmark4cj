@@ -34,7 +34,8 @@
       "cangjieOptions": {
         "arguments": ["-V"],
         "abiFilters": [
-          "x86_64"
+          "x86_64",
+          "arm64-v8a"
         ]
       },
       "nativeLib": {
