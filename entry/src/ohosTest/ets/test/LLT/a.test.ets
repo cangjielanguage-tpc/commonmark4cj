@@ -211,5 +211,50 @@ https://www.wanuxi.com/为美好的世界献上祝福第三季主视觉图公开
       expect(kimiInlineNode3.getNodeType()).assertEqual("KimiInlineNode3")
       expect(kimiInlineNode3.getProps()?.get("")).assertEqual("内容")
     })
+    it('kimi_inline_4', 0, async () => {
+      let md = '\u29C9这是一个带中文的链接：\u27D0'
+      let doc = await parser.parse(md)
+      let str = printNode(doc)
+      console.error(str)
+      expect(doc.getFirstChild()!.getFirstChild()!.getNodeType()).assertEqual("KimiInlineNode4")
+      let data = "0".repeat(255)
+      md = '\u29C9' + data + '\u27D0'
+      doc = await parser.parse(md)
+      expect(doc.getFirstChild()!.getFirstChild()!.getProps()?.get("")).assertEqual(data)
+      data = "我".repeat(255)
+      md = '\u29C9' + data + '\u27D0'
+      doc = await parser.parse(md)
+      expect(doc.getFirstChild()!.getFirstChild()!.getProps()?.get("")).assertEqual(data)
+      data = "我".repeat(256)
+      md = '\u29C9' + data + '\u27D0'
+      doc = await parser.parse(md)
+      expect(doc.getFirstChild()!.getFirstChild()!.getProps()?.get("")).assertEqual(data)
+      data = "我".repeat(500)
+      md = '\u29C9' + data + '\u27D0'
+      doc = await parser.parse(md)
+      expect(doc.getFirstChild()!.getFirstChild()!.getProps()?.get("")).assertEqual(data)
+      data = "我".repeat(501)
+      md = '\u29C9' + data + '\u27D0'
+      doc = await parser.parse(md)
+      expect(doc.getFirstChild()!.getFirstChild()!.getNodeType()).assertEqual("Text")
+      md = 'asd\u29C9qwe\u27D0'
+      doc = await parser.parse(md)
+      expect(doc.getFirstChild()!.getFirstChild()!.getLiteral()).assertEqual("asd")
+      expect(doc.getFirstChild()!.getFirstChild()!.getNext()!.getNodeType()).assertEqual("KimiInlineNode4")
+      md = 'asd\u29C9qwe\u27D0asd'
+      doc = await parser.parse(md)
+      expect(doc.getFirstChild()!.getFirstChild()!.getLiteral()).assertEqual("asd")
+      expect(doc.getFirstChild()!.getFirstChild()!.getNext()!.getNodeType()).assertEqual("KimiInlineNode4")
+      expect(doc.getFirstChild()!.getFirstChild()!.getNext()!.getNext()!.getLiteral()).assertEqual("asd")
+      md = '\u29C9qwe\u27D0asd'
+      doc = await parser.parse(md)
+      expect(doc.getFirstChild()!.getFirstChild()!.getNodeType()).assertEqual("KimiInlineNode4")
+      md = '\u29C9内容\u27D0'
+      doc = await parser.parse(md)
+      let paragraph =doc.getFirstChild()!
+      let KimiInlineNode4 = paragraph.getFirstChild()!
+      expect(KimiInlineNode4.getNodeType()).assertEqual("KimiInlineNode4")
+      expect(KimiInlineNode4.getProps()?.get("")).assertEqual("内容")
+    })
   })
 }
