@@ -136,4 +136,30 @@ class KimiInlineParser3 <: InlineParserIntegration {
     }
 }
 
-let Kimi_Inline_Parser = Plugin4InlineParserIntegration([InsertImageParser(), MoonLoadingParser(), KimiInlineParser3()])
+class KimiInlineParser4 <: InlineParserIntegration {
+    static let START: Rune = r'\u{29C9}'
+    static let END: String = "\u{27D0}"
+    static let LIMIT = 500
+    public func create(): InlineContentParser {
+        this
+    }
+    public func getTriggerCharacters(): HashSet<Rune> {
+        return HashSet([START])
+    }
+    public func tryParse(inlineParserState: InlineParserState): ParsedInline {
+        let scanner = inlineParserState.getScanner()
+        scanner.next()
+        let start = scanner.index
+        let line = scanner.peekLine()
+        if (let Some(i) <- line.indexOf(END)) {
+            let data = line[..i]
+            if (count(data.runes()) <= LIMIT) {
+                return ParsedInline.of(JsInlineNode('KimiInlineNode4', HashMap([("", data)])),
+                    SourcePosition(scanner.lineIndex, start + data.size + END.size))
+            }
+        }
+        return ParsedInline.none()
+    }
+}
+
+let Kimi_Inline_Parser = Plugin4InlineParserIntegration([InsertImageParser(), MoonLoadingParser(), KimiInlineParser3(), KimiInlineParser4()])
