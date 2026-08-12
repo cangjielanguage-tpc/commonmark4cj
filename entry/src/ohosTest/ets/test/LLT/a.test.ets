@@ -21,7 +21,7 @@ function opt(includeSourceSpans: number, cmInlineTags: string[]): Options {
   return {
     jsNodeFactory: () => new JsNodeImpl(),
     includeSourceSpans: includeSourceSpans,
-    cmInlineTags: cmInlineTags,
+    cmInlineSelfCloseTags: cmInlineTags,
     customParsers: undefined
   }
 }
@@ -29,7 +29,8 @@ function opt(includeSourceSpans: number, cmInlineTags: string[]): Options {
 let options: Options = {
   jsNodeFactory: () => new JsNodeSendableImpl(),
   includeSourceSpans: 0,
-  cmInlineTags: ['INSERT_IMAGE', '^moonLoading^', 'KIMI_REF'],
+  cmInlineSelfCloseTags: ['INSERT_IMAGE', '^moonLoading^', 'KIMI_REF'],
+  cmInlineOpenCloseTags: ['REF'],
   customParsers: undefined
 }
 let parser = new cjLib.HybridParser(options)
@@ -86,7 +87,8 @@ export default function aTest() {
       let options: Options = {
         jsNodeFactory: () => new JsNodeSendableImpl(),
         includeSourceSpans: 0,
-        cmInlineTags: ['INSERT_IMAGE', '^moonLoading^', 'KIMI_REF'],
+        cmInlineSelfCloseTags: ['INSERT_IMAGE', '^moonLoading^', 'KIMI_REF'],
+        cmInlineOpenCloseTags: undefined,
         customParsers: undefined
       }
       let parser = new cjLib.HybridParser(options)
@@ -121,7 +123,8 @@ export default function aTest() {
       let options: Options = {
         jsNodeFactory: () => new JsNodeSendableImpl(),
         includeSourceSpans: 0,
-        cmInlineTags: ['INSERT_IMAGE', '^moonLoading^', 'KIMI_REF'],
+        cmInlineSelfCloseTags: ['INSERT_IMAGE', '^moonLoading^', 'KIMI_REF'],
+        cmInlineOpenCloseTags: undefined,
         customParsers: undefined
       }
       let parser = new cjLib.HybridParser(options)
@@ -148,7 +151,7 @@ export default function aTest() {
       let options: Options = {
         jsNodeFactory: () => new JsNodeSendableImpl(),
         includeSourceSpans: 0,
-        cmInlineTags: ['INSERT_IMAGE', '^moonLoading^', 'KIMI_REF'],
+        cmInlineSelfCloseTags: ['INSERT_IMAGE', '^moonLoading^', 'KIMI_REF'],
         customParsers: undefined
       }
       let parser = new cjLib.HybridParser(options)
@@ -255,6 +258,19 @@ https://www.wanuxi.com/为美好的世界献上祝福第三季主视觉图公开
       let KimiInlineNode4 = paragraph.getFirstChild()!
       expect(KimiInlineNode4.getNodeType()).assertEqual("KimiInlineNode4")
       expect(KimiInlineNode4.getProps()?.get("")).assertEqual("内容")
+    })
+    it('kimi_open_close_tag_inline', 0, async () => {
+      let md = 'REF<REF>asd</REF>REF'
+      let doc = await parser.parse(md)
+      let str = printNode(doc)
+      console.error(str)
+      let p = doc.getFirstChild()!
+      let ref = p.getFirstChild()!.getNext()!
+      expect(p.getFirstChild()!.getNodeType()).assertEqual("Text")
+      expect(ref.getNodeType()).assertEqual("CustomTag")
+      expect(ref["tagName"]).assertEqual("REF")
+      expect(ref["content"]).assertEqual("asd")
+      expect(p.getLastChild()!.getNodeType()).assertEqual("Text")
     })
   })
 }

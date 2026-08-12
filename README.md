@@ -169,7 +169,8 @@ export default async function parse(): Promise<void> {
     includeSourceSpans: 0,
     customParsers: [myParser],
     jsNodeFactory: () => new JsNodeImpl(),
-    cmInlineTags: []
+    cmInlineSelfCloseTags: [],
+    cmInlineOpenCloseTags: []
   }
   let node = await parseIntoJsNode(markdownString, opt)
   let nodeTreeStr = printNode(node)

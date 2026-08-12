@@ -21,7 +21,7 @@ export function getOptions(includeSourceSpans: number, cmInlineTags: string[], c
   return {
     jsNodeFactory: () => new JsNodeSendableImpl(),
     includeSourceSpans: includeSourceSpans,
-    cmInlineTags: cmInlineTags,
+    cmInlineSelfCloseTags: cmInlineTags,
     customParsers: customParsers
   }
 }

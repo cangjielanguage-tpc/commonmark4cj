@@ -1,6 +1,3 @@
-/*
- * Copyright (c) Huawei Technologies Co., Ltd. 2025-2025. All rights reserved.
- */
 package commonmark_hybrid
 
 extend JSObject {
@@ -78,6 +75,7 @@ class JsNodeBuilder {
                 jsNode.set('width', v.getWidth(), context)
             case v: CustomTag =>
                 jsNode.set('tagName', v.tagName, context)
+                jsNode.set('content', v.content, context)
                 for ((key, value) in v.tagAttrs) {
                     jsNode.callMethod('putProp', context.string(key).toJSValue(), context.string(value).toJSValue())
                 }
@@ -128,7 +126,8 @@ public func parseIntoJsNode(context: JSContext, callInfo: JSCallInfo): JSValue {
     let jsNodeFactory = opt['jsNodeFactory'].asFunction()
     let builder = JsNodeBuilder(jsNodeFactory, context)
     let includeSourceSpans: Int = Int64.fromJSValue(context, opt['includeSourceSpans'])
-    let cmInlineTags: Array<String> = JSArrayEx<String>.fromJSValue(context, opt['cmInlineTags']).toArray()
+    let cmInlineSelfCloseTags: Array<String> = getStrArr(context, opt['cmInlineSelfCloseTags'])
+    let cmInlineOpenCloseTags: Array<String> = getStrArr(context, opt['cmInlineOpenCloseTags'])
     let customParsers = getCustomParsers(opt['customParsers'], context)
 
     let promise = context.promiseCapability()
@@ -151,7 +150,8 @@ public func parseIntoJsNode(context: JSContext, callInfo: JSCallInfo): JSValue {
             .usePlugin(TocPlugin.create())
             .usePlugin(Kimi_Inline_Parser)
             .usePlugin(KimiPlugin())
-            .usePlugin(CustomTagPlugin(cmInlineTags))
+            .usePlugin(CustomOpenCloseTagPlugin(cmInlineOpenCloseTags))
+            .usePlugin(CustomTagPlugin(cmInlineSelfCloseTags))
             .includeSourceSpans(includeSourceSpans)
         if (let Some(v) <- customParsers) {
             markdownBuilder.usePlugin(v)

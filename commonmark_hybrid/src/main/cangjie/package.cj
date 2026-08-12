@@ -52,3 +52,11 @@ func getStackTrace(thrown: ?Error): String {
             return res
     }
 }
+
+func getStrArr(context: JSContext, jsValue: JSValue): Array<String> {
+    return if (jsValue.isArray()) {
+    	JSArrayEx<String>.fromJSValue(context, jsValue).toArray()
+    } else {
+    	[]
+    }
+}

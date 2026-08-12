@@ -17,10 +17,13 @@ export interface Options {
    */
   includeSourceSpans: number
   /*
-   * 自定义行内标签
-   * 标签须包含`字母数字连字符之外`的字符(避免被html插件解析)
+   * 自定义行内自封闭标签
    */
-  cmInlineTags: Array<string>
+  cmInlineSelfCloseTags?: Array<string>
+  /*
+   * 自定义行内开闭标签
+   */
+  cmInlineOpenCloseTags?: Array<string>
   /*
    * 使用js编写自定义解析
    */

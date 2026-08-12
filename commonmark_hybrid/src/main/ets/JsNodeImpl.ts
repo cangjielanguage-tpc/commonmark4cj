@@ -1,6 +1,3 @@
-/*
- * Copyright (c) Huawei Technologies Co., Ltd. 2025-2025. All rights reserved.
- */
 import { JsNode, SourceSpan } from "./JsNode"
 
 export class JsNodeImpl implements JsNode {
@@ -42,6 +39,7 @@ export class JsNodeImpl implements JsNode {
   props: Map<string, string> | undefined = undefined // 用于存放Js行内自定义解析插件所产生的数据
   sourceSpans: SourceSpanImpl[] = []
   tagName: string | undefined = undefined
+  content: string | undefined = undefined
 
   getNodeType(): string {
     return this.nodeType

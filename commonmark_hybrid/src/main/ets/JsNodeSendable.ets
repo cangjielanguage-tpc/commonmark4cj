@@ -1,6 +1,3 @@
-/*
- * Copyright (c) Huawei Technologies Co., Ltd. 2025-2025. All rights reserved.
- */
 import { JsNode, SourceSpan } from './JsNode';
 import collections from '@arkts.collections';
 import { hilog } from '@kit.PerformanceAnalysisKit';
@@ -45,6 +42,7 @@ export class JsNodeSendableImpl implements JsNode {
   props: collections.Map<string, string> | undefined = undefined // 用于存放Js行内自定义解析插件所产生的数据
   sourceSpans: collections.Array<SourceSpanSendableImpl> = new collections.Array()
   tagName: string | undefined = undefined
+  content: string | undefined = undefined
 
   getNodeType(): string {
     return this.nodeType

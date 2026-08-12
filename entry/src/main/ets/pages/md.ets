@@ -25,7 +25,8 @@ export async function parseIntoJsNode(md: string, includeSourceSpans: number,
     includeSourceSpans: includeSourceSpans,
     customParsers: customParsers,
     jsNodeFactory: () => new JsNodeSendableImpl(),
-    cmInlineTags: []
+    cmInlineSelfCloseTags: [],
+    cmInlineOpenCloseTags: []
   })
 }
 
@@ -33,7 +34,8 @@ export function opt(jsNodeFactory: () => JsNode, includeSourceSpans: number): Op
   return {
     includeSourceSpans: includeSourceSpans,
     jsNodeFactory: jsNodeFactory,
-    cmInlineTags: [],
+    cmInlineSelfCloseTags: [],
+    cmInlineOpenCloseTags: [],
     customParsers: undefined
   }
 }

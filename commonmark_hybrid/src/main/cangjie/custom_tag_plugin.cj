@@ -1,6 +1,3 @@
-/*
- * Copyright (c) Huawei Technologies Co., Ltd. 2025-2025. All rights reserved.
- */
 package commonmark_hybrid
 
 import ohos.hilog.Hilog
@@ -56,12 +53,20 @@ class CustomTagParser <: InlineParserIntegration {
 
 class CustomTag <: CustomNode {
     CustomTag(public let tagName: String) {}
+    public var content: ?String = None
     public let tagAttrs: HashMap<String, String> = HashMap()
     public func getNodeType(): String {
         "CustomTag"
     }
     public func toStringAttributes(): String {
-        "tagName:${tagName},tagAttrs:${tagAttrs}"
+        let builder = StringBuilder("tagName:${tagName}")
+        if(tagAttrs.size > 0){
+            builder.append(",tagAttrs:${tagAttrs}")
+        }
+        if(let Some(v) <- content){
+            builder.append(",content:${v}")
+        }
+        return builder.toString()
     }
 }
 
@@ -121,26 +126,6 @@ class TagReader {
     }
 }
 
-class CustomTagBlockParser <: AbstractBlockParser & BlockParserFactory {
-    CustomTagBlockParser(let cxt: CustomTagPlugin) {}
-    public func tryStart(state: ParserState, matchedBlockParser: MatchedBlockParser): ?BlockStart {
-        var line: String = state.getLine().getContent()[state.getIndex()..]
-        None
-    }
-    public func getBlock(): Block {
-        throw Exception('1.1')
-    }
-    public func tryContinue(parserState: ParserState): ?BlockContinue {
-        throw Exception('1.2')
-    }
-    public func addLine(line: SourceLine): Unit {
-        throw Exception('1.3')
-    }
-    public func closeBlock(): Unit {
-        throw Exception('1.4')
-    }
-}
-
 extend Scanner {
     func readUtil(bs: Array<Byte>): ?String {
         readUtil(false, bs)
@@ -162,7 +147,9 @@ extend Scanner {
         let name = this.getSource(p0, p1).getContent()
         if (!name.isEmpty()) {
             if (dropMatcherByteWhenFind) {
-                this.next()
+                for(_ in 0..bs.size){
+                    this.next()
+                }
             }
             return name
         }

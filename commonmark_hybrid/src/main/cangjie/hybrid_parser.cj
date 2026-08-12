@@ -1,6 +1,3 @@
-/*
- * Copyright (c) Huawei Technologies Co., Ltd. 2025-2025. All rights reserved.
- */
 package commonmark_hybrid
 
 import ohos.ark_interop_macro.Interop
@@ -23,7 +20,9 @@ public class HybridParser <: SharedObject & JSInteropType<HybridParser> {
         let opt = callInfo[0].asObject()
         let jsNodeFactory = opt['jsNodeFactory'].asFunction()
         let includeSourceSpans = Int64.fromJSValue(context, opt['includeSourceSpans'])
-        let cmInlineTags: Array<String> = JSArrayEx<String>.fromJSValue(context, opt['cmInlineTags']).toArray()
+        let a:JSValue = opt['cmInlineSelfCloseTags']
+        let cmInlineSelfCloseTags: Array<String> = getStrArr(context, opt['cmInlineSelfCloseTags'])
+        let cmInlineOpenCloseTags: Array<String> = getStrArr(context, opt['cmInlineOpenCloseTags'])
         let parser = Markdown
             .builder()
             .usePlugin(TaskListPlugin.create()) // 任务列表插件
@@ -35,7 +34,8 @@ public class HybridParser <: SharedObject & JSInteropType<HybridParser> {
             .usePlugin(TocPlugin.create()) // TOC列表插件
             .usePlugin(Kimi_Inline_Parser)
             .usePlugin(KimiPlugin())
-            .usePlugin(CustomTagPlugin(cmInlineTags))
+            .usePlugin(CustomOpenCloseTagPlugin(cmInlineOpenCloseTags))
+            .usePlugin(CustomTagPlugin(cmInlineSelfCloseTags))
             .includeSourceSpans(includeSourceSpans)
             .build()
         let clazz = HybridParser(parser, jsNodeFactory)
