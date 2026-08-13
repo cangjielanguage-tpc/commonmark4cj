@@ -272,5 +272,41 @@ https://www.wanuxi.com/为美好的世界献上祝福第三季主视觉图公开
       expect(ref["content"]).assertEqual("asd")
       expect(p.getLastChild()!.getNodeType()).assertEqual("Text")
     })
+    it('kimi_open_close_tag_inline_2', 0, async () => {
+      let md = `毫米<REF>cite✦tools://web_search:1#3:~:text=08/12 大雨东北风微风27°C...东北风微风</REF><REF>cite✦tools://web_search:1#0:~:text=过去24小时总降水量...31.6mm</REF>
+优（AQI 最高 31）<REF>cite✦tools://web_search:1#0:~:text=过去24小时AQI最高值...31</REF>
+
+雷阵雨转多云，19～30℃<REF>cite✦tools://web_search:1#0:~:text=雷阵雨转多云...30℃/ _22℃</REF>
+
+**提示**：今天华北东部雨势强劲，出行请带好雨具，注意交通安全；有降水且路面湿滑，洗车和运动建议在室内进行。`
+      let doc = await parser.parse(md)
+      let str = printNode(doc)
+      console.error(str)
+      let p1 = doc.getFirstChild()!
+      let ref = p1.getLastChild()!
+      expect(ref.getNodeType()).assertEqual("CustomTag")
+      expect(ref["content"]).assertEqual("cite✦tools://web_search:1#0:~:text=过去24小时AQI最高值...31")
+      ref = ref.getPrevious()!.getPrevious()!.getPrevious()!.getPrevious()!
+      expect(ref["content"]).assertEqual("cite✦tools://web_search:1#3:~:text=08/12 大雨东北风微风27°C...东北风微风")
+      let p2 = p1.getNext()!
+      ref = p2.getFirstChild()!.getNext()!
+      expect(ref["content"]).assertEqual("cite✦tools://web_search:1#0:~:text=雷阵雨转多云...30℃/ _22℃")
+      let p3 = doc.getLastChild()!
+      let text = p3.getFirstChild()?.getFirstChild()!
+      expect(text["literal"]).assertEqual("提示")
+      expect(p3.getLastChild()!["literal"]).assertEqual("：今天华北东部雨势强劲，出行请带好雨具，注意交通安全；有降水且路面湿滑，洗车和运动建议在室内进行。")
+    })
+    it('kimi_open_close_tag_inline_3', 0, async () => {
+      let md = `<REF>cite✦tools://web_search:1#3:~:text=08/12 大雨东北风微
+      风27°C...东北风微风</REF>`
+      let doc = await parser.parse(md)
+      let str = printNode(doc)
+      console.error(str)
+      // markdown 没有跨行的行内语法
+      // 虽然看起来支持多行 但是传给自定义解析器的数据 经过处理 默认把所有行首尾空格都去掉了
+      let ref = doc.getLastChild()!.getFirstChild()!
+      expect(ref.getNodeType()).assertEqual("CustomTag")
+      expect(ref["content"]).assertEqual("cite✦tools://web_search:1#3:~:text=08/12 大雨东北风微\n风27°C...东北风微风")
+    })
   })
 }

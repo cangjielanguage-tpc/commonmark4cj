@@ -1,5 +1,7 @@
 package commonmark_hybrid
 
+import ohos.hilog.Hilog
+
 /*
  * 自定义开闭区间标签插件
  *     <cmtag>...</cmtag>
@@ -17,6 +19,7 @@ class CustomOpenCloseTagPlugin <: AbstractMarkdownPlugin {
 }
 
 class CustomOpenCloseTagParser <: InlineParserIntegration {
+    static let LIMIT = 500
     CustomOpenCloseTagParser(let ctx: CustomOpenCloseTagPlugin) {}
 
     public func create(): InlineContentParser {
@@ -32,8 +35,10 @@ class CustomOpenCloseTagParser <: InlineParserIntegration {
         for (tagName in ctx.cmInlineTags) {
             scanner.setPosition(pos0)
             if (scanner.next("<${tagName}>")) {
-                let close = "</${tagName}>".toArray()
-                let content = scanner.readUtil(true, close) ?? continue
+                let content = scanner.readUtil(true, "</${tagName}>") ?? continue
+                if (content.size > LIMIT) {
+                    continue
+                }
                 let tag = CustomTag(tagName)
                 tag.content = content
                 return ParsedInline.of(tag, scanner.position())

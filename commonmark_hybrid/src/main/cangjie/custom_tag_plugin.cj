@@ -155,4 +155,34 @@ extend Scanner {
         }
         return None
     }
+    func readUtil(dropMatcherWhenFind: Bool, matcher: String): ?String {
+        let p0 = this.position()
+        let targetChar = matcher[0] // 匹配串的第一个字符
+        while (this.hasNext()) {
+            let walk = this.find(targetChar) // 从当前位置查找第一个字符
+            if (walk == -1) { // 后续没有首字符，匹配失败
+                this.setPosition(p0)
+                return None
+            }
+            if (this.peekMatch(matcher)) {
+                // 提取content（不包含matcher）
+                let content = this.getSource(p0, this.position()).getContent()
+                if (dropMatcherWhenFind) {
+                    for (_ in 0..matcher.size) {
+                        this.next()
+                    }
+                }
+                return content
+            } else {
+                // 伪匹配：仅首字符相同，从该字符之后继续查找
+                this.next() // 跳过该首字符
+            }
+        }
+        this.setPosition(p0)
+        return None
+    }
+
+    func peekMatch(str: String): Bool {
+        return this.peekLine().startsWith(str)
+    }
 }
